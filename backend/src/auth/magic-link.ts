@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { nanoid } from 'nanoid';
-import { and, eq, isNull, gt } from 'drizzle-orm';
+import { and, eq, isNull, lt } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { magicLinkToken, session, user } from '../db/schema.js';
 import { sendEmail } from '../integrations/email/ses.js';
@@ -62,14 +62,50 @@ export async function requestMagicLink(email: string, requestIp?: string | undef
   });
 }
 
-export type VerifyResult =
-  | { ok: true; sessionId: string; userId: string }
-  | { ok: false; reason: 'invalid' | 'expired' | 'used' };
+export type TokenFailure = 'invalid' | 'expired' | 'used';
 
-export function verifyToken(
+export type PreviewResult =
+  | { ok: true; email: string; expiresAt: number }
+  | { ok: false; reason: TokenFailure };
+
+/*
+ * Read-only lookup of a token. Does NOT consume — safe to call on GETs that
+ * an email scanner (Microsoft ATP, Mimecast, Proofpoint, etc.) may prefetch
+ * before a human ever clicks. Consume the token via consumeToken() only
+ * after an explicit human action (POST from the interstitial page).
+ */
+export function previewToken(token: string): PreviewResult {
+  const now = nowSeconds();
+  const row = db
+    .select({
+      token: magicLinkToken.token,
+      userId: magicLinkToken.userId,
+      expiresAt: magicLinkToken.expiresAt,
+      usedAt: magicLinkToken.usedAt,
+      email: user.email,
+    })
+    .from(magicLinkToken)
+    .innerJoin(user, eq(user.id, magicLinkToken.userId))
+    .where(eq(magicLinkToken.token, token))
+    .get();
+  if (!row) return { ok: false, reason: 'invalid' };
+  if (row.usedAt !== null) return { ok: false, reason: 'used' };
+  if (row.expiresAt <= now) return { ok: false, reason: 'expired' };
+  return { ok: true, email: row.email, expiresAt: row.expiresAt };
+}
+
+export type ConsumeResult =
+  | { ok: true; sessionId: string; userId: string }
+  | { ok: false; reason: TokenFailure };
+
+/*
+ * Atomically mark a token used and mint a session. Called from POST-only
+ * routes; a scanner following the interstitial page will not fire this.
+ */
+export function consumeToken(
   token: string,
   meta: { userAgent?: string | undefined; ip?: string | undefined },
-): VerifyResult {
+): ConsumeResult {
   const now = nowSeconds();
   const row = db
     .select()
@@ -108,6 +144,6 @@ export function destroySession(sessionId: string): void {
 
 export function purgeExpired(): void {
   const now = nowSeconds();
-  db.delete(magicLinkToken).where(gt(magicLinkToken.expiresAt, now)).run();
-  db.delete(session).where(gt(session.expiresAt, now)).run();
+  db.delete(magicLinkToken).where(lt(magicLinkToken.expiresAt, now)).run();
+  db.delete(session).where(lt(session.expiresAt, now)).run();
 }

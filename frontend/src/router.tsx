@@ -4,6 +4,7 @@ import {
   authRequestRoute,
   authCheckEmailRoute,
   authVerifyRoute,
+  authCompleteRoute,
 } from './routes/auth';
 import { applyRoute } from './routes/apply';
 import { applySectionRoute } from './routes/apply-section';
@@ -14,6 +15,7 @@ export const routeTree = rootRoute.addChildren([
   authRequestRoute,
   authCheckEmailRoute,
   authVerifyRoute,
+  authCompleteRoute,
   applyRoute,
   applySectionRoute,
   statusRoute,

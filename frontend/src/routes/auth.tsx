@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createRoute, Link, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { rootRoute } from './root';
@@ -141,4 +141,130 @@ export const authVerifyRoute = createRoute({
   path: '/auth/verify',
   validateSearch: VerifyErrorSearch,
   component: VerifyErrorPage,
+});
+
+/* -------- interstitial (scanner-safe consume) -------- */
+
+const CompleteSearch = z.object({ token: z.string().optional() });
+
+type PeekState =
+  | { kind: 'loading' }
+  | { kind: 'ready'; email: string }
+  | { kind: 'failed'; reason: 'invalid' | 'expired' | 'used' };
+
+function CompletePage() {
+  const { token } = authCompleteRoute.useSearch();
+  const navigate = useNavigate();
+  const [peek, setPeek] = useState<PeekState>({ kind: 'loading' });
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmError, setConfirmError] = useState<null | 'invalid' | 'expired' | 'used' | 'unknown'>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!token) {
+      navigate({ to: '/auth/verify', search: { error: 'invalid' } });
+      return;
+    }
+    (async () => {
+      try {
+        const res = await api.get<{ email: string; expiresAt: number }>(
+          `/api/auth/verify/peek?token=${encodeURIComponent(token)}`,
+        );
+        setPeek({ kind: 'ready', email: res.email });
+      } catch (err) {
+        const reason =
+          err instanceof ApiError &&
+          typeof err.body === 'object' &&
+          err.body !== null &&
+          'error' in err.body
+            ? ((err.body as { error: string }).error as PeekState['kind'] extends 'failed'
+                ? 'invalid' | 'expired' | 'used'
+                : never)
+            : 'invalid';
+        navigate({ to: '/auth/verify', search: { error: reason } });
+      }
+    })();
+  }, [token, navigate]);
+
+  async function onContinue() {
+    if (!token) return;
+    setSubmitting(true);
+    setConfirmError(null);
+    try {
+      await api.post('/api/auth/complete', { token });
+      // Hard-reload so beforeLoad guards re-run with the new session cookie.
+      window.location.assign('/apply');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const body =
+          typeof err.body === 'object' && err.body !== null && 'error' in err.body
+            ? ((err.body as { error: string }).error as string)
+            : 'unknown';
+        if (body === 'invalid' || body === 'expired' || body === 'used') {
+          setConfirmError(body);
+        } else {
+          setConfirmError('unknown');
+        }
+      } else {
+        setConfirmError('unknown');
+      }
+      setSubmitting(false);
+    }
+  }
+
+  if (peek.kind === 'loading') {
+    return (
+      <Prose>
+        <p className="smallcaps text-accent mb-6">Sign in</p>
+        <h1 className="mb-4">Checking your link…</h1>
+      </Prose>
+    );
+  }
+
+  return (
+    <Prose>
+      <p className="smallcaps text-accent mb-6">Confirm sign-in</p>
+      <h1 className="mb-4">
+        You&rsquo;re about to sign in as <em>{peek.kind === 'ready' ? peek.email : ''}</em>.
+      </h1>
+      <p className="text-muted mb-8 max-w-xl">
+        Corporate email scanners sometimes open links before you do. To make
+        sure it&rsquo;s really you, click below to complete sign-in.
+      </p>
+
+      {confirmError && (
+        <p className="text-accent mb-6">
+          {confirmError === 'expired'
+            ? 'This link has expired — please request a new one.'
+            : confirmError === 'used'
+              ? 'This link has already been used — please request a new one.'
+              : confirmError === 'invalid'
+                ? 'This link is not valid.'
+                : 'Something went wrong. Please try again.'}
+        </p>
+      )}
+
+      <div className="flex items-center gap-4">
+        <button
+          className="btn btn-primary"
+          onClick={onContinue}
+          disabled={submitting || peek.kind !== 'ready'}
+          autoFocus
+        >
+          {submitting ? 'Signing in…' : 'Continue to my application →'}
+        </button>
+        <Link to="/auth/request" className="text-muted no-underline hover:underline">
+          Cancel
+        </Link>
+      </div>
+    </Prose>
+  );
+}
+
+export const authCompleteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/complete',
+  validateSearch: CompleteSearch,
+  component: CompletePage,
 });

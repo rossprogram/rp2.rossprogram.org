@@ -1,8 +1,18 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { RequestLinkBody } from '@rp2/shared';
-import { requestMagicLink, verifyToken, destroySession } from '../auth/magic-link.js';
+import {
+  requestMagicLink,
+  previewToken,
+  consumeToken,
+  destroySession,
+} from '../auth/magic-link.js';
 import { setSessionCookie, clearSessionCookie } from '../auth/session.js';
 import { env } from '../env.js';
+
+const CompleteBody = z.object({
+  token: z.string().min(20).max(200),
+});
 
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   app.post(
@@ -26,21 +36,59 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // Email-link landing endpoint. Intentionally does NOT consume the token —
+  // corporate email scanners (Microsoft ATP Safe Links, Mimecast, Proofpoint,
+  // Gmail hover previews, etc.) fetch every URL in incoming mail. If we
+  // consumed here, the scanner would burn the token before the human ever
+  // clicks. Instead we validate + redirect to an SPA interstitial with a
+  // human "Continue" button that fires the actual consume via POST.
   app.get('/api/auth/verify', async (req, reply) => {
     const q = req.query as { token?: string };
     if (!q.token || typeof q.token !== 'string') {
-      return reply.code(400).send({ error: 'missing_token' });
+      return reply.redirect(`${env.APP_URL}/auth/verify?error=invalid`);
     }
-    const result = verifyToken(q.token, {
-      userAgent: req.headers['user-agent'],
-      ip: req.ip,
-    });
-    if (!result.ok) {
-      return reply.redirect(`${env.APP_URL}/auth/verify?error=${result.reason}`);
+    const preview = previewToken(q.token);
+    if (!preview.ok) {
+      return reply.redirect(`${env.APP_URL}/auth/verify?error=${preview.reason}`);
     }
-    setSessionCookie(reply, result.sessionId);
-    return reply.redirect(`${env.APP_URL}/apply`);
+    return reply.redirect(
+      `${env.APP_URL}/auth/complete?token=${encodeURIComponent(q.token)}`,
+    );
   });
+
+  // SPA calls this on mount to render "Sign in as ada@example.com" — read-only.
+  app.get('/api/auth/verify/peek', async (req, reply) => {
+    const q = req.query as { token?: string };
+    if (!q.token || typeof q.token !== 'string') {
+      return reply.code(400).send({ error: 'invalid' });
+    }
+    const preview = previewToken(q.token);
+    if (!preview.ok) return reply.code(400).send({ error: preview.reason });
+    return { email: preview.email, expiresAt: preview.expiresAt };
+  });
+
+  // Actual consume. Only fires after an explicit Continue click.
+  app.post(
+    '/api/auth/complete',
+    {
+      config: {
+        rateLimit: { max: 10, timeWindow: '1 minute' },
+      },
+    },
+    async (req, reply) => {
+      const parsed = CompleteBody.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: 'invalid' });
+      }
+      const result = consumeToken(parsed.data.token, {
+        userAgent: req.headers['user-agent'],
+        ip: req.ip,
+      });
+      if (!result.ok) return reply.code(400).send({ error: result.reason });
+      setSessionCookie(reply, result.sessionId);
+      return { ok: true };
+    },
+  );
 
   app.get('/api/auth/me', async (req, reply) => {
     if (!req.currentUser) return reply.code(401).send({ error: 'unauthenticated' });

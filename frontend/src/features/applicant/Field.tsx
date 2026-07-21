@@ -135,7 +135,7 @@ function TimezoneInput({ question, value, disabled, onSave }: Props) {
     <Wrapper question={question}>
       <input
         type="text"
-        className="field-input"
+        className="field-input font-mono"
         list="rp2-timezones"
         value={local}
         disabled={disabled}
@@ -165,8 +165,9 @@ function TimezoneInput({ question, value, disabled, onSave }: Props) {
         )}
         {local && !isKnown && (
           <span className="italic">
-            &ldquo;{local}&rdquo; is not a standard IANA zone — we&rsquo;ll follow up if
-            we can&rsquo;t find a match.
+            <span className="font-mono not-italic">&ldquo;{local}&rdquo;</span> is not
+            a standard IANA zone — we&rsquo;ll follow up if we can&rsquo;t find a
+            match.
           </span>
         )}
         {local && isKnown && <TimezoneNow zone={local} />}

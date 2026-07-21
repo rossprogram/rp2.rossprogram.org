@@ -28,7 +28,9 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 LockPersonality=true
-MemoryDenyWriteExecute=true
+# MemoryDenyWriteExecute is intentionally NOT set — Node's V8 JIT needs to
+# mprotect pages as W+X, and W^X enforcement makes the process crash on
+# startup with an mprotect EPERM.
 
 # Writable paths: DB + local uploads dir if you ever fall back to STORAGE_DRIVER=local
 ReadWritePaths=/var/lib/rp2 /opt/rp2/backend

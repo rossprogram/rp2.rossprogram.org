@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Question } from '@rp2/shared';
 import { isRenderable } from '@rp2/shared';
 
@@ -27,6 +27,8 @@ export function Field({ question, value, disabled, onSave }: Props) {
       );
     case 'date':
       return <TextInput question={question} value={value} disabled={disabled} onSave={onSave} type="date" />;
+    case 'timezone':
+      return <TimezoneInput question={question} value={value} disabled={disabled} onSave={onSave} />;
     case 'long_text':
       return <LongText question={question} value={value} disabled={disabled} onSave={onSave} />;
     case 'single_select':
@@ -101,6 +103,145 @@ function TextInput({
       />
     </Wrapper>
   );
+}
+
+function TimezoneInput({ question, value, disabled, onSave }: Props) {
+  const [local, setLocal] = useState(stringify(value));
+  useEffect(() => {
+    setLocal(stringify(value));
+  }, [value]);
+
+  const detected = useMemo(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const zones = useMemo(() => allTimezones(), []);
+
+  const isKnown = useMemo(
+    () => (local ? zones.some((z) => z === local) : true),
+    [local, zones],
+  );
+
+  function commit(v: string) {
+    setLocal(v);
+    onSave(v);
+  }
+
+  return (
+    <Wrapper question={question}>
+      <input
+        type="text"
+        className="field-input"
+        list="rp2-timezones"
+        value={local}
+        disabled={disabled}
+        autoComplete="off"
+        placeholder={detected ?? 'e.g. America/New_York'}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={() => {
+          if (local !== stringify(value)) onSave(local);
+        }}
+      />
+      <datalist id="rp2-timezones">
+        {zones.map((tz) => (
+          <option key={tz} value={tz} />
+        ))}
+      </datalist>
+
+      <div className="mt-2 text-sm text-muted flex flex-wrap items-baseline gap-3">
+        {detected && local !== detected && (
+          <button
+            type="button"
+            className="text-accent hover:underline"
+            disabled={disabled}
+            onClick={() => commit(detected)}
+          >
+            Use my browser&rsquo;s zone: <span className="font-mono">{detected}</span>
+          </button>
+        )}
+        {local && !isKnown && (
+          <span className="italic">
+            &ldquo;{local}&rdquo; is not a standard IANA zone — we&rsquo;ll follow up if
+            we can&rsquo;t find a match.
+          </span>
+        )}
+        {local && isKnown && <TimezoneNow zone={local} />}
+      </div>
+    </Wrapper>
+  );
+}
+
+function TimezoneNow({ zone }: { zone: string }) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const now = useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        timeZone: zone,
+        weekday: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short',
+      }).format(new Date());
+    } catch {
+      return null;
+    }
+    // tick is intentional to refresh
+  }, [zone, tick]);
+  if (!now) return null;
+  return <span className="italic">Local time there: {now}</span>;
+}
+
+// Curated fallback for browsers without Intl.supportedValuesOf (older Safari,
+// old mobile). Everything else uses the browser's full IANA list at runtime.
+const FALLBACK_TIMEZONES: readonly string[] = [
+  'Pacific/Honolulu',
+  'America/Anchorage',
+  'America/Los_Angeles',
+  'America/Denver',
+  'America/Chicago',
+  'America/New_York',
+  'America/Sao_Paulo',
+  'Europe/London',
+  'Europe/Berlin',
+  'Europe/Moscow',
+  'Africa/Cairo',
+  'Africa/Johannesburg',
+  'Asia/Jerusalem',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Singapore',
+  'Asia/Shanghai',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Australia/Perth',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+  'UTC',
+];
+
+function allTimezones(): readonly string[] {
+  try {
+    const fn = (
+      Intl as unknown as {
+        supportedValuesOf?: (input: string) => string[];
+      }
+    ).supportedValuesOf;
+    if (typeof fn === 'function') {
+      const values = fn('timeZone');
+      if (Array.isArray(values) && values.length > 0) return values;
+    }
+  } catch {
+    /* fall through */
+  }
+  return FALLBACK_TIMEZONES;
 }
 
 function LongText({ question, value, disabled, onSave }: Props) {

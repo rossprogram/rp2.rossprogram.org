@@ -59,6 +59,7 @@ export type Question =
   | (Base & { type: 'email' })
   | (Base & { type: 'phone' })
   | (Base & { type: 'date' })
+  | (Base & { type: 'timezone' })
   | (Base & { type: 'single_select'; options: readonly Option[] })
   | (Base & { type: 'multi_select'; options: readonly Option[] })
   | (Base & { type: 'ranked'; options: readonly Option[] })
@@ -83,27 +84,6 @@ const GRADE_LEVELS: readonly Option[] = [
   { value: '12', label: '12th grade' },
   { value: 'gap', label: 'Gap year' },
   { value: 'other', label: 'Other' },
-];
-
-// Curated subset of IANA timezones — expand later if we see gaps.
-const TIMEZONES: readonly Option[] = [
-  { value: 'Pacific/Honolulu', label: 'Hawaii (HST)' },
-  { value: 'America/Anchorage', label: 'Alaska (AKT)' },
-  { value: 'America/Los_Angeles', label: 'US Pacific (PT)' },
-  { value: 'America/Denver', label: 'US Mountain (MT)' },
-  { value: 'America/Chicago', label: 'US Central (CT)' },
-  { value: 'America/New_York', label: 'US Eastern (ET)' },
-  { value: 'America/Sao_Paulo', label: 'Brazil (BRT)' },
-  { value: 'Europe/London', label: 'UK (GMT / BST)' },
-  { value: 'Europe/Berlin', label: 'Central Europe (CET)' },
-  { value: 'Europe/Moscow', label: 'Moscow (MSK)' },
-  { value: 'Asia/Jerusalem', label: 'Israel (IST)' },
-  { value: 'Asia/Kolkata', label: 'India (IST)' },
-  { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
-  { value: 'Asia/Shanghai', label: 'China (CST)' },
-  { value: 'Asia/Tokyo', label: 'Japan (JST)' },
-  { value: 'Australia/Sydney', label: 'Australia Eastern (AET)' },
-  { value: 'other', label: 'Other — I will describe below' },
 ];
 
 const RELATIONSHIP: readonly Option[] = [
@@ -207,11 +187,10 @@ export const QUESTIONS: readonly Question[] = [
   {
     key: 'student_timezone',
     section: 'student_info',
-    type: 'single_select',
+    type: 'timezone',
     prompt: 'Time zone',
     required: true,
-    options: TIMEZONES,
-    help: 'Select the closest match — you will be able to share your weekly availability later.',
+    help: 'Start typing to search — any IANA time zone works. We use this to schedule your live sessions.',
   },
   {
     key: 'prior_ross_applied',
@@ -427,6 +406,7 @@ export const RENDERABLE_TYPES: readonly QuestionType[] = [
   'email',
   'phone',
   'date',
+  'timezone',
   'single_select',
   'multi_select',
 ];

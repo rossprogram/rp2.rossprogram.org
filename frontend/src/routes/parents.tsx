@@ -56,8 +56,8 @@ function ParentsPage() {
         <p>
           Questions before your student applies, or during the term, are
           always welcome. Write to{' '}
-          <a href="mailto:fowler@math.osu.edu" className="font-mono">
-            fowler@math.osu.edu
+          <a href="mailto:ross@rossprogram.org" className="font-mono">
+            ross@rossprogram.org
           </a>
           .
         </p>

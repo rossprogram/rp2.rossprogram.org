@@ -437,7 +437,7 @@ function ClosingCTA({ signedIn }: { signedIn: boolean }) {
             </Link>
           )}
           <a
-            href="mailto:fowler@math.osu.edu"
+            href="mailto:ross@rossprogram.org"
             className="btn btn-ghost no-underline"
           >
             Write to us with questions

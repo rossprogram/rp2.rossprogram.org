@@ -143,7 +143,7 @@ export const QUESTIONS: readonly Question[] = [
     type: 'short_text',
     prompt: 'Preferred name',
     required: false,
-    help: 'What you would like mentors and other applicants to call you.',
+    help: 'What you would like mentors and other people to call you.',
     maxLength: 100,
   },
   {

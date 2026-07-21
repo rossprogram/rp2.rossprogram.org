@@ -65,7 +65,8 @@ export function RequiredMark() {
   return (
     <sup
       aria-hidden
-      className="text-accent font-sans font-normal text-[0.7em] ml-1 tracking-normal"
+      title="required"
+      className="text-accent font-sans font-normal text-[0.7em] ml-1 tracking-normal cursor-help"
     >
       ∗
     </sup>

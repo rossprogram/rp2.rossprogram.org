@@ -5,14 +5,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: '#FCFDFB',
+        paper: '#F4F7F2',
+        field: '#FFFFFF',
         ink: '#0F1F17',
         muted: '#5A6B60',
-        rule: '#DDE5DE',
+        rule: '#D4DCD5',
         accent: {
           DEFAULT: '#14532D',
           hover: '#0F3D22',
-          soft: '#E1EEE7',
+          soft: '#DBE9DE',
         },
       },
       fontFamily: {

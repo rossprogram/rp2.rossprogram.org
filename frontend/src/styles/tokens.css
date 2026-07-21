@@ -1,13 +1,14 @@
 :root {
   color-scheme: light;
 
-  --paper: #fcfdfb;
+  --paper: #f4f7f2;
+  --field-bg: #ffffff;
   --ink: #0f1f17;
   --muted: #5a6b60;
-  --rule: #dde5de;
+  --rule: #d4dcd5;
   --accent: #14532d;
   --accent-hover: #0f3d22;
-  --accent-soft: #e1eee7;
+  --accent-soft: #dbe9de;
 
   --font-serif: 'Computer Modern Serif', 'Latin Modern Roman', Georgia, serif;
   --font-sans: 'Computer Modern Sans', 'CMU Sans Serif', system-ui, sans-serif;

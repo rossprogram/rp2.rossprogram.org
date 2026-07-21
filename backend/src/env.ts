@@ -15,6 +15,10 @@ const Env = z.object({
   EMAIL_FROM: z.string().email().default('noreply@rossprojective.org'),
   EMAIL_TRANSPORT: z.enum(['console', 'ses']).default('console'),
   AWS_REGION: z.string().default('us-east-1'),
+
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  STORAGE_LOCAL_DIR: z.string().default('./uploads'),
+  STORAGE_S3_BUCKET: z.string().optional(),
 });
 
 export const env = Env.parse(process.env);

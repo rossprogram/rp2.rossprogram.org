@@ -79,3 +79,64 @@ export function submitApplication(): Promise<{
 }> {
   return api.post('/api/application/me/submit');
 }
+
+export type ApplicationFile = {
+  id: string;
+  kind: 'transcript' | 'aid_doc';
+  filename: string;
+  contentType: string;
+  size: number;
+  uploadedAt: number;
+};
+
+export function listFiles(): Promise<{ files: ApplicationFile[] }> {
+  return api.get('/api/application/me/files');
+}
+
+export function signUpload(input: {
+  kind: 'transcript' | 'aid_doc';
+  filename: string;
+  contentType: string;
+  size: number;
+}): Promise<{ uploadUrl: string; storageKey: string; expiresAt: number }> {
+  return api.post('/api/uploads/sign', input);
+}
+
+export function registerFile(input: {
+  kind: 'transcript' | 'aid_doc';
+  storageKey: string;
+  filename: string;
+  contentType: string;
+  size: number;
+}): Promise<{ file: ApplicationFile }> {
+  return api.post('/api/application/me/files', input);
+}
+
+export function deleteFile(id: string): Promise<void> {
+  return api.delete(`/api/application/me/files/${encodeURIComponent(id)}`);
+}
+
+export function fileDownloadUrl(id: string): string {
+  return `/api/application/me/files/${encodeURIComponent(id)}/download`;
+}
+
+export function uploadFileWithProgress(
+  uploadUrl: string,
+  file: File,
+  onProgress: (fraction: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`upload failed: ${xhr.status}`));
+    };
+    xhr.onerror = () => reject(new Error('upload failed'));
+    xhr.send(file);
+  });
+}

@@ -1,18 +1,20 @@
 import { Link } from '@tanstack/react-router';
 import type { Question, SectionKey } from '@rp2/shared';
 import { SECTIONS, QUESTIONS, isRenderable } from '@rp2/shared';
+import type { ApplicationFile } from '../../api/client';
 
 type Props = {
   responses: Record<string, unknown>;
+  files: readonly ApplicationFile[];
   currentSection?: SectionKey;
 };
 
-export function SectionNav({ responses, currentSection }: Props) {
+export function SectionNav({ responses, files, currentSection }: Props) {
   return (
     <nav aria-label="Application sections" className="text-sm">
       <ol className="space-y-1">
         {SECTIONS.map((s) => {
-          const progress = sectionProgress(s.key, responses);
+          const progress = sectionProgress(s.key, responses, files);
           const active = s.key === currentSection;
           return (
             <li key={s.key}>
@@ -47,14 +49,17 @@ type Progress = 'empty' | 'partial' | 'complete';
 export function sectionProgress(
   section: SectionKey,
   responses: Record<string, unknown>,
+  files: readonly ApplicationFile[],
 ): Progress {
   const renderable = QUESTIONS.filter(
     (q) => q.section === section && isRenderable(q),
   );
   if (renderable.length === 0) return 'empty';
   const requiredRenderable = renderable.filter((q) => q.required);
-  const filledRequired = requiredRenderable.filter((q) => hasValue(responses[q.key]));
-  const anyFilled = renderable.some((q) => hasValue(responses[q.key]));
+  const filledRequired = requiredRenderable.filter((q) =>
+    hasAnswer(q, responses, files),
+  );
+  const anyFilled = renderable.some((q) => hasAnswer(q, responses, files));
 
   if (
     requiredRenderable.length > 0 &&
@@ -66,10 +71,22 @@ export function sectionProgress(
   return 'empty';
 }
 
+function hasAnswer(
+  q: Question,
+  responses: Record<string, unknown>,
+  files: readonly ApplicationFile[],
+): boolean {
+  if (q.type === 'file_upload') {
+    return files.some((f) => f.kind === q.kind);
+  }
+  return hasValue(responses[q.key]);
+}
+
 function hasValue(v: unknown): boolean {
   if (v === undefined || v === null) return false;
   if (typeof v === 'string') return v.trim().length > 0;
   if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'object') return Object.keys(v as object).length > 0;
   return true;
 }
 
@@ -100,17 +117,19 @@ export function nextSectionSlug(current: SectionKey): string | null {
 
 export function firstIncompleteSlug(
   responses: Record<string, unknown>,
+  files: readonly ApplicationFile[],
 ): string {
   for (const s of SECTIONS) {
-    if (sectionProgress(s.key, responses) !== 'complete') return s.slug;
+    if (sectionProgress(s.key, responses, files) !== 'complete') return s.slug;
   }
   return SECTIONS[0]!.slug;
 }
 
 export function allRenderableRequiredComplete(
   responses: Record<string, unknown>,
+  files: readonly ApplicationFile[],
 ): boolean {
   return QUESTIONS.filter((q: Question) => q.required && isRenderable(q)).every((q) =>
-    hasValue(responses[q.key]),
+    hasAnswer(q, responses, files),
   );
 }

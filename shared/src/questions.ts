@@ -402,6 +402,10 @@ export const RENDERABLE_TYPES: readonly QuestionType[] = [
   'timezone',
   'single_select',
   'multi_select',
+  'ranked',
+  'availability_grid',
+  'file_upload',
+  'signature',
 ];
 
 export function isRenderable(q: Question): boolean {

@@ -1,9 +1,14 @@
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
+
+// Raw binary body parser for presigned PUT uploads. Body arrives as
+// Buffer; multipart/form-data isn't used — the PUT is a single file blob.
+
 import { env } from './env.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerApplicationRoutes } from './routes/application.js';
+import { registerUploadRoutes } from './routes/uploads.js';
 import { attachSession } from './auth/session.js';
 import { runMigrations } from './db/migrate.js';
 
@@ -19,12 +24,19 @@ async function build() {
   await app.register(cookie, { secret: env.SESSION_SECRET });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 
+  app.addContentTypeParser(
+    ['application/pdf', 'image/png', 'image/jpeg', 'application/octet-stream'],
+    { parseAs: 'buffer' },
+    (_req, body, done) => done(null, body),
+  );
+
   app.addHook('preHandler', attachSession);
 
   app.get('/api/health', async () => ({ ok: true }));
 
   await registerAuthRoutes(app);
   await registerApplicationRoutes(app);
+  await registerUploadRoutes(app);
 
   return app;
 }

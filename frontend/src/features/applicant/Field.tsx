@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Question } from '@rp2/shared';
 import { isRenderable } from '@rp2/shared';
+import { SignatureField } from './fields/SignatureField';
+import { RankedList } from './fields/RankedList';
+import { AvailabilityGrid } from './fields/AvailabilityGrid';
+import { FileUploadField } from './fields/FileUploadField';
 
 type Props = {
   question: Question;
@@ -35,6 +39,14 @@ export function Field({ question, value, disabled, onSave }: Props) {
       return <SingleSelect question={question} value={value} disabled={disabled} onSave={onSave} />;
     case 'multi_select':
       return <MultiSelect question={question} value={value} disabled={disabled} onSave={onSave} />;
+    case 'ranked':
+      return <RankedList question={question} value={value} disabled={disabled} onSave={onSave} />;
+    case 'availability_grid':
+      return <AvailabilityGrid question={question} value={value} disabled={disabled} onSave={onSave} />;
+    case 'file_upload':
+      return <FileUploadField question={question} disabled={disabled} />;
+    case 'signature':
+      return <SignatureField question={question} value={value} disabled={disabled} onSave={onSave} />;
     default:
       return null;
   }

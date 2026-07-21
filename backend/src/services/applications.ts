@@ -1,7 +1,13 @@
 import { nanoid } from 'nanoid';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { application, applicantProfile, applicationResponse } from '../db/schema.js';
+import {
+  application,
+  applicantProfile,
+  applicationResponse,
+  applicationAvailability,
+  applicationCoursePreference,
+} from '../db/schema.js';
 import type { ApplicationStatus } from '@rp2/shared';
 
 function nowSeconds(): number {
@@ -123,6 +129,13 @@ export function upsertResponses(
         .run();
     }
 
+    if ('availability' in incoming) {
+      syncAvailability(app.id, incoming.availability);
+    }
+    if ('course_preferences' in incoming) {
+      syncCoursePreferences(app.id, incoming.course_preferences);
+    }
+
     db.update(application)
       .set({ updatedAt: now })
       .where(eq(application.id, app.id))
@@ -130,6 +143,47 @@ export function upsertResponses(
   });
 
   return { updatedAt: now };
+}
+
+function syncAvailability(applicationId: string, value: unknown): void {
+  db.delete(applicationAvailability)
+    .where(eq(applicationAvailability.applicationId, applicationId))
+    .run();
+  if (!Array.isArray(value)) return;
+  const rows = value
+    .filter(
+      (r): r is { weekday: number; startMin: number; endMin: number } =>
+        !!r &&
+        typeof r === 'object' &&
+        Number.isInteger((r as { weekday?: unknown }).weekday) &&
+        Number.isInteger((r as { startMin?: unknown }).startMin) &&
+        Number.isInteger((r as { endMin?: unknown }).endMin) &&
+        (r as { weekday: number }).weekday >= 0 &&
+        (r as { weekday: number }).weekday <= 6 &&
+        (r as { startMin: number }).startMin < (r as { endMin: number }).endMin,
+    )
+    .map((r) => ({
+      applicationId,
+      weekday: r.weekday,
+      startMin: r.startMin,
+      endMin: r.endMin,
+    }));
+  if (rows.length > 0) {
+    db.insert(applicationAvailability).values(rows).run();
+  }
+}
+
+function syncCoursePreferences(applicationId: string, value: unknown): void {
+  db.delete(applicationCoursePreference)
+    .where(eq(applicationCoursePreference.applicationId, applicationId))
+    .run();
+  if (!Array.isArray(value)) return;
+  const rows = value
+    .filter((v): v is string => typeof v === 'string' && v.length > 0)
+    .map((courseKey, i) => ({ applicationId, courseKey, rank: i + 1 }));
+  if (rows.length > 0) {
+    db.insert(applicationCoursePreference).values(rows).run();
+  }
 }
 
 export class ApplicationLocked extends Error {

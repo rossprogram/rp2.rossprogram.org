@@ -1,7 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
 import { createRoute, Link, redirect } from '@tanstack/react-router';
 import { rootRoute } from './root';
 import { Prose } from '../components/Layout';
-import { fetchMe, fetchApplication } from '../api/client';
+import { fetchMe, fetchApplication, listFiles } from '../api/client';
 import { useApplication } from '../features/applicant/useApplication';
 import { SavedIndicator } from '../features/applicant/SavedIndicator';
 import { SECTIONS } from '@rp2/shared';
@@ -29,10 +30,16 @@ async function ensureAuthAndPreload({
 
 function ApplyIndex() {
   const q = useApplication();
+  const filesQuery = useQuery({
+    queryKey: ['files'],
+    queryFn: async () => (await listFiles()).files,
+  });
   const submit = useSubmitApplication();
   const responses = q.data?.responses ?? {};
+  const files = filesQuery.data ?? [];
 
-  const canSubmit = q.data?.status === 'draft' && allRenderableRequiredComplete(responses);
+  const canSubmit =
+    q.data?.status === 'draft' && allRenderableRequiredComplete(responses, files);
 
   return (
     <Prose>
@@ -51,7 +58,7 @@ function ApplyIndex() {
 
       <ol className="rule-t divide-y divide-rule">
         {SECTIONS.map((s) => {
-          const progress = sectionProgress(s.key, responses);
+          const progress = sectionProgress(s.key, responses, files);
           return (
             <li key={s.key} className="py-5">
               <Link
@@ -80,7 +87,7 @@ function ApplyIndex() {
       <div className="flex items-center justify-between">
         <Link
           to="/apply/$section"
-          params={{ section: firstIncompleteSlug(responses) }}
+          params={{ section: firstIncompleteSlug(responses, files) }}
           className="btn btn-primary no-underline"
         >
           Continue where I left off

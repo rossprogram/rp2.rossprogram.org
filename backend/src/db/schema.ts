@@ -136,3 +136,57 @@ export const applicationResponse = sqliteTable(
     pk: primaryKey({ columns: [t.applicationId, t.questionKey] }),
   }),
 );
+
+// Denormalized availability rows for admin scheduling queries. Refreshed on
+// every save of the `availability` response.
+export const applicationAvailability = sqliteTable(
+  'application_availability',
+  {
+    applicationId: text('application_id')
+      .notNull()
+      .references(() => application.id, { onDelete: 'cascade' }),
+    weekday: integer('weekday').notNull(), // 0 = Sunday
+    startMin: integer('start_min').notNull(), // minutes since local midnight
+    endMin: integer('end_min').notNull(),
+  },
+  (t) => ({
+    appIdx: index('availability_app_idx').on(t.applicationId),
+    weekdayIdx: index('availability_weekday_idx').on(t.weekday),
+  }),
+);
+
+// Denormalized course preferences for admin sort/filter. Refreshed on every
+// save of the `course_preferences` response.
+export const applicationCoursePreference = sqliteTable(
+  'application_course_preference',
+  {
+    applicationId: text('application_id')
+      .notNull()
+      .references(() => application.id, { onDelete: 'cascade' }),
+    courseKey: text('course_key').notNull(),
+    rank: integer('rank').notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.applicationId, t.courseKey] }),
+    rankIdx: index('course_pref_rank_idx').on(t.applicationId, t.rank),
+  }),
+);
+
+export const applicationFile = sqliteTable(
+  'application_file',
+  {
+    id: text('id').primaryKey(),
+    applicationId: text('application_id')
+      .notNull()
+      .references(() => application.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['transcript', 'aid_doc'] }).notNull(),
+    storageKey: text('storage_key').notNull(),
+    filename: text('filename').notNull(),
+    contentType: text('content_type').notNull(),
+    size: integer('size').notNull(),
+    uploadedAt: integer('uploaded_at').notNull().default(nowSql),
+  },
+  (t) => ({
+    appKindIdx: index('file_app_kind_idx').on(t.applicationId, t.kind),
+  }),
+);

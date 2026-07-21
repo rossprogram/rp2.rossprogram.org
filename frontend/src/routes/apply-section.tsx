@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createRoute, Link, useParams, redirect } from '@tanstack/react-router';
 import { rootRoute } from './root';
-import { fetchMe, fetchApplication } from '../api/client';
+import { fetchMe, fetchApplication, listFiles } from '../api/client';
 import { SectionHeading } from '../components/Layout';
 import { SavedIndicator } from '../features/applicant/SavedIndicator';
 import { SectionNav, nextSectionSlug } from '../features/applicant/SectionNav';
@@ -30,12 +31,17 @@ async function ensureAuthAndSection({
 function SectionPage() {
   const { section: slug } = useParams({ from: applySectionRoute.id });
   const q = useApplication();
+  const filesQuery = useQuery({
+    queryKey: ['files'],
+    queryFn: async () => (await listFiles()).files,
+  });
   const save = useSaveResponses();
 
   const section = useMemo(() => sectionBySlug(slug)!, [slug]);
   const questions = useMemo(() => questionsInSection(section.key), [section.key]);
 
   const responses = q.data?.responses ?? {};
+  const files = filesQuery.data ?? [];
   const locked = q.data?.status && q.data.status !== 'draft';
   const next = nextSectionSlug(section.key);
 
@@ -49,7 +55,11 @@ function SectionPage() {
             saving={save.isPending}
           />
         </div>
-        <SectionNav responses={responses} currentSection={section.key} />
+        <SectionNav
+          responses={responses}
+          files={files}
+          currentSection={section.key}
+        />
       </aside>
 
       <main>

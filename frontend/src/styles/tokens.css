@@ -1,0 +1,18 @@
+:root {
+  color-scheme: light;
+
+  --paper: #fcfdfb;
+  --ink: #0f1f17;
+  --muted: #5a6b60;
+  --rule: #dde5de;
+  --accent: #14532d;
+  --accent-hover: #0f3d22;
+  --accent-soft: #e1eee7;
+
+  --font-serif: 'Computer Modern Serif', 'Latin Modern Roman', Georgia, serif;
+  --font-sans: 'Computer Modern Sans', 'CMU Sans Serif', system-ui, sans-serif;
+  --font-mono: 'Computer Modern Typewriter', 'Latin Modern Mono', ui-monospace, monospace;
+
+  --measure: 68ch;
+  --measure-narrow: 42ch;
+}

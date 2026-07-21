@@ -54,8 +54,25 @@ function PrivacyPage() {
         <p>
           <b>Session information.</b> When you sign in, we place a signed,
           HTTP-only session cookie on your browser so you stay signed in.
-          We do not use analytics, advertising, or third-party tracking
-          cookies of any kind.
+          We do not use advertising cookies or build advertising profiles.
+        </p>
+        <p>
+          <b>Analytics.</b> We use Google Analytics to understand, in
+          aggregate, how visitors find and move through the site &mdash;
+          for example, which pages people read before they start an
+          application. Google Analytics sets cookies in your browser and
+          receives your IP address and general information about your
+          device and browser. We do not link analytics data to your
+          account or application, and we do not use it for advertising.
+          You can opt out with the{' '}
+          <a
+            href="https://tools.google.com/dlpage/gaoptout"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Google Analytics Opt-out Browser Add-on
+          </a>
+          .
         </p>
 
         <H2>How we use it</H2>
@@ -106,6 +123,9 @@ function PrivacyPage() {
           <li>
             <b>Amazon Web Services</b> — email delivery (SES), database
             hosting, and file storage (S3);
+          </li>
+          <li>
+            <b>Google Analytics</b> — aggregate site-usage analytics;
           </li>
           <li>
             <b>Zoom</b> — live class sessions and office hours, for

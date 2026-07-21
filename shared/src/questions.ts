@@ -7,12 +7,12 @@
  * migration.
  *
  * Sections mirror planning/Student Application.txt:
- *   1. Student information
+ *   1. Applicant information
  *   2. Parent / guardian information
  *   3. Mathematical background and course preferences
  *   4. Mathematical reflections
  *   5. Financial aid          (deferred to slice 3)
- *   6. Student + guardian signatures  (deferred to slice 3)
+ *   6. Applicant + guardian signatures  (deferred to slice 3)
  */
 
 export const SECTION_KEYS = [
@@ -31,7 +31,7 @@ export const SECTIONS: readonly {
   title: string;
   slug: string;
 }[] = [
-  { key: 'student_info', index: 1, title: 'Student information', slug: 'student' },
+  { key: 'student_info', index: 1, title: 'Applicant information', slug: 'applicant' },
   { key: 'guardian', index: 2, title: 'Parent or guardian', slug: 'guardian' },
   { key: 'math_background', index: 3, title: 'Mathematical background', slug: 'math' },
   { key: 'reflections', index: 4, title: 'Mathematical reflections', slug: 'reflections' },
@@ -128,12 +128,12 @@ const AID_LEVEL: readonly Option[] = [
 /* -------- questions -------- */
 
 export const QUESTIONS: readonly Question[] = [
-  // §1 Student information
+  // §1 Applicant information
   {
     key: 'student_legal_name',
     section: 'student_info',
     type: 'short_text',
-    prompt: 'Student full name',
+    prompt: 'Applicant full name',
     required: true,
     maxLength: 200,
   },
@@ -143,14 +143,14 @@ export const QUESTIONS: readonly Question[] = [
     type: 'short_text',
     prompt: 'Preferred name',
     required: false,
-    help: 'What you would like mentors and other students to call you.',
+    help: 'What you would like mentors and other applicants to call you.',
     maxLength: 100,
   },
   {
     key: 'student_email',
     section: 'student_info',
     type: 'email',
-    prompt: 'Student email address',
+    prompt: 'Applicant email address',
     required: true,
   },
   {
@@ -262,7 +262,7 @@ export const QUESTIONS: readonly Question[] = [
     key: 'guardian_relationship',
     section: 'guardian',
     type: 'single_select',
-    prompt: 'Relationship to student',
+    prompt: 'Relationship to applicant',
     required: true,
     options: RELATIONSHIP,
   },
@@ -383,7 +383,7 @@ export const QUESTIONS: readonly Question[] = [
     key: 'student_signature',
     section: 'signatures',
     type: 'signature',
-    prompt: 'Student signature',
+    prompt: 'Applicant signature',
     required: true,
   },
   {

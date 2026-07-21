@@ -7,8 +7,12 @@ import {
   applicationResponse,
   applicationAvailability,
   applicationCoursePreference,
+  guardianLink,
+  user,
+  userRole,
 } from '../db/schema.js';
 import type { ApplicationStatus } from '@rp2/shared';
+import { requestGuardianInvite } from '../auth/magic-link.js';
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
@@ -88,15 +92,22 @@ export function loadApplicationView(userId: string): {
   return { ...app, responses };
 }
 
-export function upsertResponses(
+export async function upsertResponses(
   userId: string,
   incoming: Record<string, unknown>,
-): { updatedAt: number } {
+): Promise<{ updatedAt: number }> {
   const app = getOrCreateApplication(userId);
-  if (app.status !== 'draft') {
+  // Applicant can still edit while awaiting the guardian; once the whole
+  // thing is `submitted` or beyond, it's locked.
+  if (app.status !== 'draft' && app.status !== 'awaiting_guardian') {
     throw new ApplicationLocked(app.status);
   }
   const now = nowSeconds();
+
+  const guardianAction = decideGuardianAction(userId, incoming);
+  if (guardianAction.kind === 'reject') {
+    throw new GuardianEmailLocked(guardianAction.reason);
+  }
 
   const profileUpdate: ProfileUpdate = {};
 
@@ -142,7 +153,172 @@ export function upsertResponses(
       .run();
   });
 
+  if (guardianAction.kind === 'invite') {
+    // Fire outside the DB transaction — sending email is async and slow.
+    await maybeSendGuardianInvite(userId, guardianAction);
+  }
+
   return { updatedAt: now };
+}
+
+type GuardianDecision =
+  | { kind: 'noop' }
+  | { kind: 'reject'; reason: 'accepted_locked' | 'same_as_applicant' }
+  | {
+      kind: 'invite';
+      guardianEmail: string;
+      guardianName: string;
+      relationship: 'parent' | 'guardian' | 'other';
+    };
+
+function decideGuardianAction(
+  applicantUserId: string,
+  incoming: Record<string, unknown>,
+): GuardianDecision {
+  if (
+    !('guardian_email' in incoming) &&
+    !('guardian_name' in incoming) &&
+    !('guardian_relationship' in incoming)
+  ) {
+    return { kind: 'noop' };
+  }
+
+  const nextEmail = normalizeStr(incoming['guardian_email']);
+  const nextName = normalizeStr(incoming['guardian_name']);
+  const nextRel = normalizeStr(incoming['guardian_relationship']);
+
+  const existingLink = db
+    .select()
+    .from(guardianLink)
+    .where(eq(guardianLink.applicantUserId, applicantUserId))
+    .get();
+
+  const applicant = db.select().from(user).where(eq(user.id, applicantUserId)).get();
+  const applicantEmail = applicant?.email ?? '';
+
+  // If applicant is just editing the name or relationship (no email), the
+  // link may need a relationship update but we don't reinvite.
+  if (nextEmail === undefined) {
+    // Nothing to invite; caller will still save the plain response.
+    return { kind: 'noop' };
+  }
+
+  const normalized = nextEmail.toLowerCase();
+
+  if (normalized === '' && !existingLink) {
+    // Applicant cleared the email but no link exists — nothing to do.
+    return { kind: 'noop' };
+  }
+  if (normalized === applicantEmail.toLowerCase()) {
+    return { kind: 'reject', reason: 'same_as_applicant' };
+  }
+  if (existingLink && existingLink.acceptedAt !== null) {
+    // Guardian already accepted; email is locked. Same email is fine (no-op).
+    const currentGuardian = db
+      .select()
+      .from(user)
+      .where(eq(user.id, existingLink.guardianUserId))
+      .get();
+    if (currentGuardian && currentGuardian.email === normalized) {
+      return { kind: 'noop' };
+    }
+    return { kind: 'reject', reason: 'accepted_locked' };
+  }
+
+  const relationship = normalizeRelationship(nextRel);
+  const finalName = nextName ?? '';
+  return {
+    kind: 'invite',
+    guardianEmail: normalized,
+    guardianName: finalName,
+    relationship,
+  };
+}
+
+const INVITE_RATE_LIMIT_SECONDS = 60 * 60 * 24; // 1 invite per 24h per link
+
+async function maybeSendGuardianInvite(
+  applicantUserId: string,
+  action: Extract<GuardianDecision, { kind: 'invite' }>,
+): Promise<void> {
+  const now = nowSeconds();
+  const { guardianUserId } = await requestGuardianInvite(
+    action.guardianEmail,
+    action.guardianName,
+  );
+  const existing = db
+    .select()
+    .from(guardianLink)
+    .where(eq(guardianLink.applicantUserId, applicantUserId))
+    .get();
+
+  if (!existing) {
+    // If this email is already an established guardian (they've accepted a
+    // prior invite — for a sibling, or previously for this same applicant),
+    // don't force them through the sign-in interstitial again. Mark the new
+    // link accepted at creation.
+    const alreadyGuardian = db
+      .select({ userId: userRole.userId })
+      .from(userRole)
+      .where(and(eq(userRole.userId, guardianUserId), eq(userRole.role, 'guardian')))
+      .get();
+
+    db.insert(guardianLink)
+      .values({
+        id: nanoid(),
+        applicantUserId,
+        guardianUserId,
+        relationship: action.relationship,
+        invitedAt: now,
+        acceptedAt: alreadyGuardian ? now : null,
+        createdAt: now,
+      })
+      .run();
+    return;
+  }
+
+  // Existing link. Repoint to the (possibly new) guardian user.
+  const isNewGuardian = existing.guardianUserId !== guardianUserId;
+  const withinRateLimit =
+    !isNewGuardian &&
+    existing.invitedAt !== null &&
+    now - existing.invitedAt < INVITE_RATE_LIMIT_SECONDS;
+
+  if (withinRateLimit) {
+    // Don't spam the parent with fresh magic links every keystroke; keep the
+    // link row intact.
+    return;
+  }
+
+  db.update(guardianLink)
+    .set({
+      guardianUserId,
+      relationship: action.relationship,
+      invitedAt: now,
+      // If we switched guardians, reset acceptance state.
+      ...(isNewGuardian ? { acceptedAt: null } : {}),
+    })
+    .where(eq(guardianLink.applicantUserId, applicantUserId))
+    .run();
+}
+
+function normalizeStr(v: unknown): string | undefined {
+  if (v === undefined) return undefined;
+  if (v === null) return '';
+  if (typeof v === 'string') return v.trim();
+  return '';
+}
+
+function normalizeRelationship(v: string | undefined): 'parent' | 'guardian' | 'other' {
+  if (v === 'parent') return 'parent';
+  if (v === 'guardian') return 'guardian';
+  return 'other';
+}
+
+export class GuardianEmailLocked extends Error {
+  constructor(public reason: 'accepted_locked' | 'same_as_applicant') {
+    super(`guardian_email rejected: ${reason}`);
+  }
 }
 
 function syncAvailability(applicationId: string, value: unknown): void {
@@ -202,9 +378,21 @@ export function submitApplication(userId: string): {
     throw new ApplicationLocked(app.status);
   }
   const now = nowSeconds();
+
+  // If the guardian raced ahead of the applicant and already finished their
+  // part, flip straight to `submitted`; otherwise park in `awaiting_guardian`
+  // until the guardian completes.
+  const row = db
+    .select({ guardianSubmittedAt: application.guardianSubmittedAt })
+    .from(application)
+    .where(eq(application.id, app.id))
+    .get();
+  const guardianDone = row?.guardianSubmittedAt !== null && row?.guardianSubmittedAt !== undefined;
+  const nextStatus: ApplicationStatus = guardianDone ? 'submitted' : 'awaiting_guardian';
+
   db.update(application)
-    .set({ status: 'submitted', submittedAt: now, updatedAt: now })
+    .set({ status: nextStatus, submittedAt: now, updatedAt: now })
     .where(and(eq(application.id, app.id), eq(application.status, 'draft')))
     .run();
-  return { id: app.id, status: 'submitted', submittedAt: now };
+  return { id: app.id, status: nextStatus, submittedAt: now };
 }

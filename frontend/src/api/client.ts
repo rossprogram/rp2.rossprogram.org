@@ -47,19 +47,31 @@ export async function fetchMe(): Promise<Me | null> {
   }
 }
 
+export type ApplicationStatus =
+  | 'draft'
+  | 'awaiting_guardian'
+  | 'submitted'
+  | 'under_review'
+  | 'accepted'
+  | 'waitlisted'
+  | 'rejected'
+  | 'withdrawn';
+
+export type GuardianStatus = {
+  hasLink: boolean;
+  guardianEmail: string | null;
+  invitedAt: number | null;
+  acceptedAt: number | null;
+  taskComplete: boolean;
+};
+
 export type ApplicationView = {
   id: string;
-  status:
-    | 'draft'
-    | 'submitted'
-    | 'under_review'
-    | 'accepted'
-    | 'waitlisted'
-    | 'rejected'
-    | 'withdrawn';
+  status: ApplicationStatus;
   submittedAt: number | null;
   updatedAt: number;
   responses: Record<string, unknown>;
+  guardian: GuardianStatus;
 };
 
 export function fetchApplication(): Promise<ApplicationView> {
@@ -74,10 +86,86 @@ export function patchResponses(
 
 export function submitApplication(): Promise<{
   id: string;
-  status: 'submitted';
+  status: 'submitted' | 'awaiting_guardian';
   submittedAt: number;
 }> {
   return api.post('/api/application/me/submit');
+}
+
+export function resendGuardianInvite(): Promise<{ ok: true }> {
+  return api.post('/api/application/me/resend-guardian-invite');
+}
+
+/* -------- guardian portal -------- */
+
+export type GuardianApplicantSummary = {
+  applicationId: string;
+  applicantName: string;
+  applicantEmail: string;
+  status: ApplicationStatus;
+  aidLevel: string | null;
+  guardianSignature: string | null;
+  aidDocCount: number;
+  taskComplete: boolean;
+  guardianSubmittedAt: number | null;
+};
+
+export function fetchMyLinkedApplicants(): Promise<{
+  applicants: GuardianApplicantSummary[];
+}> {
+  return api.get('/api/guardian/me');
+}
+
+export function fetchGuardianApplicantView(
+  appId: string,
+): Promise<{ applicant: GuardianApplicantSummary; files: ApplicationFile[] }> {
+  return api.get(`/api/guardian/applicant/${encodeURIComponent(appId)}`);
+}
+
+export function patchGuardianTasks(
+  appId: string,
+  input: { guardianSignature?: string; aidLevel?: 'none' | 'partial' | 'full' },
+): Promise<{ ok: true }> {
+  return api.patch(`/api/guardian/applicant/${encodeURIComponent(appId)}`, input);
+}
+
+export function completeGuardianPart(
+  appId: string,
+): Promise<{ ok: true; status: ApplicationStatus }> {
+  return api.post(`/api/guardian/applicant/${encodeURIComponent(appId)}/complete`);
+}
+
+export function guardianSignUpload(
+  appId: string,
+  input: { filename: string; contentType: string; size: number },
+): Promise<{
+  ticket: { uploadUrl: string; storageKey: string; expiresAt: number };
+}> {
+  return api.post(
+    `/api/guardian/applicant/${encodeURIComponent(appId)}/uploads/sign`,
+    input,
+  );
+}
+
+export function guardianRegisterFile(
+  appId: string,
+  input: {
+    storageKey: string;
+    filename: string;
+    contentType: string;
+    size: number;
+  },
+): Promise<{ file: ApplicationFile }> {
+  return api.post(
+    `/api/guardian/applicant/${encodeURIComponent(appId)}/files`,
+    input,
+  );
+}
+
+export function guardianDeleteFile(appId: string, fileId: string): Promise<void> {
+  return api.delete(
+    `/api/guardian/applicant/${encodeURIComponent(appId)}/files/${encodeURIComponent(fileId)}`,
+  );
 }
 
 export type ApplicationFile = {

@@ -12,6 +12,7 @@ import {
   allRenderableRequiredComplete,
 } from '../features/applicant/SectionNav';
 import { useSubmitApplication } from '../features/applicant/useApplication';
+import { GuardianStatusPanel } from '../features/applicant/GuardianStatusPanel';
 
 async function ensureAuthAndPreload({
   context,
@@ -24,7 +25,9 @@ async function ensureAuthAndPreload({
     queryKey: ['application'],
     queryFn: fetchApplication,
   });
-  if (app.status !== 'draft') throw redirect({ to: '/status' });
+  if (app.status !== 'draft' && app.status !== 'awaiting_guardian') {
+    throw redirect({ to: '/status' });
+  }
   return { me };
 }
 
@@ -51,10 +54,19 @@ function ApplyIndex() {
         />
       </div>
       <h1 className="mb-4">Your application</h1>
-      <p className="text-muted mb-10">
+      <p className="text-muted mb-6">
         Save your work at any time — everything you type autosaves. You can return
         to any section in any order before submitting.
       </p>
+
+      <GuardianStatusPanel
+        guardian={q.data?.guardian}
+        guardianName={
+          typeof responses['guardian_name'] === 'string'
+            ? (responses['guardian_name'] as string)
+            : undefined
+        }
+      />
 
       <ol className="rule-t divide-y divide-rule">
         {SECTIONS.map((s) => {

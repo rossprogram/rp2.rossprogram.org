@@ -65,9 +65,16 @@ export function UserMenu() {
             <div className="smallcaps text-muted mb-1">Signed in as</div>
             <div className="font-mono text-sm text-ink truncate">{email}</div>
           </div>
-          <MenuLink to="/apply" onClick={() => setOpen(false)}>
-            My application
-          </MenuLink>
+          {me.data.roles.includes('guardian') && (
+            <MenuLink to="/guardian" onClick={() => setOpen(false)}>
+              Parent portal
+            </MenuLink>
+          )}
+          {!me.data.roles.includes('guardian') && (
+            <MenuLink to="/apply" onClick={() => setOpen(false)}>
+              My application
+            </MenuLink>
+          )}
           <button
             role="menuitem"
             className="block w-full text-left px-4 py-2.5 hover:bg-accent-soft text-ink"
@@ -89,7 +96,7 @@ function MenuLink({
   children,
   onClick,
 }: {
-  to: '/apply';
+  to: '/apply' | '/guardian';
   children: React.ReactNode;
   onClick: () => void;
 }) {

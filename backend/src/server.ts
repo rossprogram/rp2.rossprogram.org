@@ -8,6 +8,7 @@ import rateLimit from '@fastify/rate-limit';
 import { env } from './env.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerApplicationRoutes } from './routes/application.js';
+import { registerGuardianRoutes } from './routes/guardian.js';
 import { registerUploadRoutes } from './routes/uploads.js';
 import { attachSession } from './auth/session.js';
 import { runMigrations } from './db/migrate.js';
@@ -36,6 +37,7 @@ async function build() {
 
   await registerAuthRoutes(app);
   await registerApplicationRoutes(app);
+  await registerGuardianRoutes(app);
   await registerUploadRoutes(app);
 
   return app;

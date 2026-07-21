@@ -72,6 +72,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       email: preview.email,
       expiresAt: preview.expiresAt,
       needsDob: preview.needsDob,
+      purpose: preview.purpose,
     };
   });
 
@@ -98,7 +99,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(status).send({ error: result.reason });
       }
       setSessionCookie(reply, result.sessionId);
-      return { ok: true };
+      return { ok: true, purpose: result.purpose };
     },
   );
 

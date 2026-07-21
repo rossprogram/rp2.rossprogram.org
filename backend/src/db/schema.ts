@@ -47,6 +47,14 @@ export const magicLinkToken = sqliteTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
+    // What this link is meant to do when consumed. Guardians skip the DOB
+    // interstitial; on first consume of a `guardian_invite` we also flip the
+    // matching guardian_link's accepted_at.
+    purpose: text('purpose', {
+      enum: ['applicant_signin', 'guardian_invite', 'guardian_signin'],
+    })
+      .notNull()
+      .default('applicant_signin'),
     createdAt: integer('created_at').notNull().default(nowSql),
     expiresAt: integer('expires_at').notNull(),
     usedAt: integer('used_at'),
@@ -98,6 +106,7 @@ export const application = sqliteTable(
     status: text('status', {
       enum: [
         'draft',
+        'awaiting_guardian',
         'submitted',
         'under_review',
         'accepted',
@@ -111,6 +120,7 @@ export const application = sqliteTable(
     createdAt: integer('created_at').notNull().default(nowSql),
     updatedAt: integer('updated_at').notNull().default(nowSql),
     submittedAt: integer('submitted_at'),
+    guardianSubmittedAt: integer('guardian_submitted_at'),
     decisionAt: integer('decision_at'),
     decisionBy: text('decision_by').references(() => user.id, { onDelete: 'set null' }),
     decisionNotes: text('decision_notes'),
@@ -184,9 +194,39 @@ export const applicationFile = sqliteTable(
     filename: text('filename').notNull(),
     contentType: text('content_type').notNull(),
     size: integer('size').notNull(),
+    // Which user uploaded this file — applicant for transcripts, guardian for
+    // aid docs. Nullable for rows created before this column existed.
+    uploadedByUserId: text('uploaded_by_user_id').references(() => user.id, {
+      onDelete: 'restrict',
+    }),
     uploadedAt: integer('uploaded_at').notNull().default(nowSql),
   },
   (t) => ({
     appKindIdx: index('file_app_kind_idx').on(t.applicationId, t.kind),
+  }),
+);
+
+// One-to-one for the pilot: at most one guardian per applicant. Sibling case
+// is handled by two applicant rows sharing the same guardian_user_id.
+export const guardianLink = sqliteTable(
+  'guardian_link',
+  {
+    id: text('id').primaryKey(),
+    applicantUserId: text('applicant_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    guardianUserId: text('guardian_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    relationship: text('relationship', {
+      enum: ['parent', 'guardian', 'other'],
+    }).notNull(),
+    createdAt: integer('created_at').notNull().default(nowSql),
+    invitedAt: integer('invited_at'),
+    acceptedAt: integer('accepted_at'),
+  },
+  (t) => ({
+    applicantUnique: uniqueIndex('guardian_link_applicant_idx').on(t.applicantUserId),
+    guardianIdx: index('guardian_link_guardian_idx').on(t.guardianUserId),
   }),
 );

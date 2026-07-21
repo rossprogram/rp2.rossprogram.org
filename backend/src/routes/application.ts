@@ -4,6 +4,7 @@ import { UpsertResponsesBody } from '@rp2/shared';
 import { requireAuth } from '../auth/session.js';
 import {
   ApplicationLocked,
+  GuardianEmailLocked,
   getOrCreateApplication,
   loadApplicationView,
   submitApplication,
@@ -15,6 +16,11 @@ import {
   listFiles,
   registerFile,
 } from '../services/uploads.js';
+import { getGuardianStatusForApplicant } from '../services/guardian.js';
+import { requestGuardianInvite } from '../auth/magic-link.js';
+import { db } from '../db/client.js';
+import { and, eq, isNull } from 'drizzle-orm';
+import { application, applicationResponse, guardianLink, user } from '../db/schema.js';
 import { getObject } from '../integrations/storage/index.js';
 
 const RegisterFileBody = z.object({
@@ -30,7 +36,54 @@ export async function registerApplicationRoutes(app: FastifyInstance): Promise<v
     '/api/application/me',
     { preHandler: requireAuth() },
     async (req) => {
-      return loadApplicationView(req.currentUser!.id);
+      const view = loadApplicationView(req.currentUser!.id);
+      const guardian = getGuardianStatusForApplicant(req.currentUser!.id);
+      return { ...view, guardian };
+    },
+  );
+
+  app.post(
+    '/api/application/me/resend-guardian-invite',
+    {
+      preHandler: requireAuth(),
+      config: { rateLimit: { max: 3, timeWindow: '1 hour' } },
+    },
+    async (req, reply) => {
+      const userId = req.currentUser!.id;
+      const link = db
+        .select()
+        .from(guardianLink)
+        .where(eq(guardianLink.applicantUserId, userId))
+        .get();
+      if (!link) return reply.code(404).send({ error: 'no_guardian' });
+      const guardian = db.select().from(user).where(eq(user.id, link.guardianUserId)).get();
+      if (!guardian) return reply.code(404).send({ error: 'no_guardian' });
+
+      const nameRow = db
+        .select({ value: applicationResponse.value })
+        .from(applicationResponse)
+        .innerJoin(application, eq(application.id, applicationResponse.applicationId))
+        .where(
+          and(
+            eq(application.applicantUserId, userId),
+            eq(applicationResponse.questionKey, 'student_legal_name'),
+          ),
+        )
+        .get();
+      const applicantName = readJsonString(nameRow?.value) ?? '';
+
+      await requestGuardianInvite(guardian.email, applicantName);
+      const now = Math.floor(Date.now() / 1000);
+      db.update(guardianLink)
+        .set({ invitedAt: now })
+        .where(
+          and(
+            eq(guardianLink.applicantUserId, userId),
+            isNull(guardianLink.acceptedAt),
+          ),
+        )
+        .run();
+      return { ok: true };
     },
   );
 
@@ -43,11 +96,17 @@ export async function registerApplicationRoutes(app: FastifyInstance): Promise<v
         return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
       }
       try {
-        const { updatedAt } = upsertResponses(req.currentUser!.id, parsed.data.responses);
+        const { updatedAt } = await upsertResponses(
+          req.currentUser!.id,
+          parsed.data.responses,
+        );
         return { updatedAt };
       } catch (err) {
         if (err instanceof ApplicationLocked) {
           return reply.code(409).send({ error: 'application_locked', status: err.status });
+        }
+        if (err instanceof GuardianEmailLocked) {
+          return reply.code(409).send({ error: 'guardian_email_locked', reason: err.reason });
         }
         throw err;
       }
@@ -97,6 +156,7 @@ export async function registerApplicationRoutes(app: FastifyInstance): Promise<v
         filename: parsed.data.filename,
         contentType: parsed.data.contentType,
         size: parsed.data.size,
+        uploadedByUserId: req.currentUser!.id,
       });
       return { file: row };
     },
@@ -138,4 +198,14 @@ export async function registerApplicationRoutes(app: FastifyInstance): Promise<v
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^\w.\- ]/g, '_').slice(0, 200);
+}
+
+function readJsonString(v: string | undefined): string | null {
+  if (v === undefined) return null;
+  try {
+    const parsed = JSON.parse(v);
+    return typeof parsed === 'string' ? parsed : null;
+  } catch {
+    return v;
+  }
 }

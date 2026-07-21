@@ -38,6 +38,33 @@ function StatusPage() {
     );
   }
 
+  if (status === 'awaiting_guardian') {
+    const guardianEmail = app?.guardian?.guardianEmail ?? null;
+    return (
+      <Prose>
+        <p className="smallcaps text-accent mb-6">Application status</p>
+        <h1 className="mb-4">Your part is in.</h1>
+        <p className="text-lg text-ink/90 mb-6">
+          We&rsquo;ve emailed{' '}
+          {guardianEmail ? (
+            <em>{guardianEmail}</em>
+          ) : (
+            <em>your parent or guardian</em>
+          )}{' '}
+          to sign consent and (if you requested aid) upload supporting
+          documentation. Once they complete their part, your application will
+          move into review.
+        </p>
+        <p className="text-muted italic mb-10">
+          You will receive an email when there is any update.
+        </p>
+        <Link to="/apply" className="btn btn-ghost no-underline">
+          Review my responses
+        </Link>
+      </Prose>
+    );
+  }
+
   return (
     <Prose>
       <p className="smallcaps text-accent mb-6">Application status</p>

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const ApplicationStatus = z.enum([
   'draft',
+  'awaiting_guardian',
   'submitted',
   'under_review',
   'accepted',

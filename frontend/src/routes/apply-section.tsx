@@ -25,7 +25,9 @@ async function ensureAuthAndSection({
     queryKey: ['application'],
     queryFn: fetchApplication,
   });
-  if (app.status !== 'draft') throw redirect({ to: '/status' });
+  if (app.status !== 'draft' && app.status !== 'awaiting_guardian') {
+    throw redirect({ to: '/status' });
+  }
 }
 
 function SectionPage() {
@@ -42,7 +44,10 @@ function SectionPage() {
 
   const responses = q.data?.responses ?? {};
   const files = filesQuery.data ?? [];
-  const locked = q.data?.status && q.data.status !== 'draft';
+  const locked =
+    q.data?.status !== undefined &&
+    q.data.status !== 'draft' &&
+    q.data.status !== 'awaiting_guardian';
   const next = nextSectionSlug(section.key);
 
   return (

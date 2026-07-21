@@ -30,6 +30,16 @@ export type SignInput = {
 
 export type SignError = 'unsupported_type' | 'too_large' | 'app_locked';
 
+// Guardians can still upload aid docs while the application is
+// `awaiting_guardian`; the applicant can only touch files while in `draft`.
+// The caller (route handler) is responsible for auth; this function only
+// enforces that the application isn't past `awaiting_guardian`.
+function isEditableFor(status: string, kind: 'transcript' | 'aid_doc'): boolean {
+  if (status === 'draft') return true;
+  if (status === 'awaiting_guardian' && kind === 'aid_doc') return true;
+  return false;
+}
+
 export async function requestSignedUpload(
   input: SignInput,
 ): Promise<
@@ -46,7 +56,9 @@ export async function requestSignedUpload(
     .from(application)
     .where(eq(application.id, input.applicationId))
     .get();
-  if (!app || app.status !== 'draft') return { ok: false, reason: 'app_locked' };
+  if (!app || !isEditableFor(app.status, input.kind)) {
+    return { ok: false, reason: 'app_locked' };
+  }
 
   const ticket = await signUpload({
     userId: input.userId,
@@ -64,6 +76,7 @@ export type RegisterInput = {
   filename: string;
   contentType: string;
   size: number;
+  uploadedByUserId?: string | undefined;
 };
 
 export type ApplicationFileRow = {
@@ -105,6 +118,7 @@ export async function registerFile(input: RegisterInput): Promise<ApplicationFil
       filename: input.filename,
       contentType: input.contentType,
       size: input.size,
+      uploadedByUserId: input.uploadedByUserId ?? null,
       uploadedAt: now,
     })
     .run();

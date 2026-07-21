@@ -2,10 +2,13 @@ import { randomBytes } from 'node:crypto';
 import { nanoid } from 'nanoid';
 import { and, eq, isNull, lt } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { magicLinkToken, session, user } from '../db/schema.js';
+import { guardianLink, magicLinkToken, session, user, userRole } from '../db/schema.js';
 import { sendEmail } from '../integrations/email/ses.js';
+import { renderGuardianInviteEmail } from '../integrations/email/templates.js';
 import { env } from '../env.js';
 import { sessionTtlSeconds } from './session.js';
+
+export type MagicLinkPurpose = 'applicant_signin' | 'guardian_invite' | 'guardian_signin';
 
 const TOKEN_TTL_SECONDS = 15 * 60;
 
@@ -19,27 +22,8 @@ function newToken(): string {
 
 export async function requestMagicLink(email: string, requestIp?: string | undefined): Promise<void> {
   const normalized = email.trim().toLowerCase();
-
-  let userId: string;
-  const existing = db.select().from(user).where(eq(user.email, normalized)).get();
-  if (existing) {
-    userId = existing.id;
-  } else {
-    userId = nanoid();
-    db.insert(user).values({ id: userId, email: normalized }).run();
-  }
-
-  const token = newToken();
-  const expiresAt = nowSeconds() + TOKEN_TTL_SECONDS;
-  db.insert(magicLinkToken)
-    .values({
-      token,
-      userId,
-      expiresAt,
-      requestIp: requestIp ?? null,
-    })
-    .run();
-
+  const userId = upsertUser(normalized);
+  const token = issueToken(userId, 'applicant_signin', requestIp);
   const link = `${env.APP_URL}/api/auth/verify?token=${encodeURIComponent(token)}`;
   await sendEmail({
     to: normalized,
@@ -64,10 +48,68 @@ export async function requestMagicLink(email: string, requestIp?: string | undef
   });
 }
 
+/*
+ * Sends a `guardian_invite` magic link. Called from the applications service
+ * when the applicant first saves guardian_email (and rate-limited resends
+ * afterward). The token's `purpose='guardian_invite'` causes the interstitial
+ * to skip DOB collection and consumeToken to grant the `guardian` role +
+ * flip `guardian_link.acceptedAt`.
+ */
+export async function requestGuardianInvite(
+  guardianEmail: string,
+  applicantName: string,
+): Promise<{ guardianUserId: string }> {
+  const normalized = guardianEmail.trim().toLowerCase();
+  const guardianUserId = upsertUser(normalized);
+  const token = issueToken(guardianUserId, 'guardian_invite');
+  const link = `${env.APP_URL}/api/auth/verify?token=${encodeURIComponent(token)}`;
+  const rendered = renderGuardianInviteEmail({ applicantName, magicLinkUrl: link });
+  await sendEmail({
+    to: normalized,
+    subject: rendered.subject,
+    text: rendered.text,
+    html: rendered.html,
+  });
+  return { guardianUserId };
+}
+
+function upsertUser(normalizedEmail: string): string {
+  const existing = db.select().from(user).where(eq(user.email, normalizedEmail)).get();
+  if (existing) return existing.id;
+  const id = nanoid();
+  db.insert(user).values({ id, email: normalizedEmail }).run();
+  return id;
+}
+
+function issueToken(
+  userId: string,
+  purpose: MagicLinkPurpose,
+  requestIp?: string | undefined,
+): string {
+  const token = newToken();
+  const expiresAt = nowSeconds() + TOKEN_TTL_SECONDS;
+  db.insert(magicLinkToken)
+    .values({
+      token,
+      userId,
+      purpose,
+      expiresAt,
+      requestIp: requestIp ?? null,
+    })
+    .run();
+  return token;
+}
+
 export type TokenFailure = 'invalid' | 'expired' | 'used';
 
 export type PreviewResult =
-  | { ok: true; email: string; expiresAt: number; needsDob: boolean }
+  | {
+      ok: true;
+      email: string;
+      expiresAt: number;
+      needsDob: boolean;
+      purpose: MagicLinkPurpose;
+    }
   | { ok: false; reason: TokenFailure };
 
 /*
@@ -82,6 +124,7 @@ export function previewToken(token: string): PreviewResult {
     .select({
       token: magicLinkToken.token,
       userId: magicLinkToken.userId,
+      purpose: magicLinkToken.purpose,
       expiresAt: magicLinkToken.expiresAt,
       usedAt: magicLinkToken.usedAt,
       email: user.email,
@@ -94,11 +137,15 @@ export function previewToken(token: string): PreviewResult {
   if (!row) return { ok: false, reason: 'invalid' };
   if (row.usedAt !== null) return { ok: false, reason: 'used' };
   if (row.expiresAt <= now) return { ok: false, reason: 'expired' };
+  // Guardians don't go through the DOB gate — parents are adults, and we
+  // never ask for their DOB.
+  const needsDob = row.purpose === 'applicant_signin' && row.dob === null;
   return {
     ok: true,
     email: row.email,
     expiresAt: row.expiresAt,
-    needsDob: row.dob === null,
+    needsDob,
+    purpose: row.purpose,
   };
 }
 
@@ -121,7 +168,7 @@ export function ageInYears(dobIso: string, at: Date = new Date()): number | null
 }
 
 export type ConsumeResult =
-  | { ok: true; sessionId: string; userId: string }
+  | { ok: true; sessionId: string; userId: string; purpose: MagicLinkPurpose }
   | { ok: false; reason: TokenFailure | 'dob_required' | 'too_young' | 'invalid_dob' };
 
 /*
@@ -141,6 +188,7 @@ export function consumeToken(
     .select({
       token: magicLinkToken.token,
       userId: magicLinkToken.userId,
+      purpose: magicLinkToken.purpose,
       expiresAt: magicLinkToken.expiresAt,
       usedAt: magicLinkToken.usedAt,
       dob: user.dob,
@@ -153,8 +201,10 @@ export function consumeToken(
   if (row.usedAt !== null) return { ok: false, reason: 'used' };
   if (row.expiresAt <= now) return { ok: false, reason: 'expired' };
 
+  const isApplicant = row.purpose === 'applicant_signin';
+
   let dobToStore: string | null = row.dob;
-  if (row.dob === null) {
+  if (isApplicant && row.dob === null) {
     if (!meta.dob) return { ok: false, reason: 'dob_required' };
     const age = ageInYears(meta.dob);
     if (age === null) return { ok: false, reason: 'invalid_dob' };
@@ -180,6 +230,25 @@ export function consumeToken(
     .run();
   if (updated.changes === 0) return { ok: false, reason: 'used' };
 
+  // Guardian-invite acceptance: grant role, mark any guardian_link rows this
+  // person is on as accepted. Idempotent — safe if they re-enter via a fresh
+  // sign-in link later.
+  if (row.purpose === 'guardian_invite') {
+    db.insert(userRole)
+      .values({ userId: row.userId, role: 'guardian' })
+      .onConflictDoNothing()
+      .run();
+    db.update(guardianLink)
+      .set({ acceptedAt: now })
+      .where(
+        and(
+          eq(guardianLink.guardianUserId, row.userId),
+          isNull(guardianLink.acceptedAt),
+        ),
+      )
+      .run();
+  }
+
   const sessionId = nanoid(32);
   db.insert(session)
     .values({
@@ -195,7 +264,7 @@ export function consumeToken(
     .where(eq(user.id, row.userId))
     .run();
 
-  return { ok: true, sessionId, userId: row.userId };
+  return { ok: true, sessionId, userId: row.userId, purpose: row.purpose };
 }
 
 export function destroySession(sessionId: string): void {

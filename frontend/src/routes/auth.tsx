@@ -147,9 +147,11 @@ export const authVerifyRoute = createRoute({
 
 const CompleteSearch = z.object({ token: z.string().optional() });
 
+type Purpose = 'applicant_signin' | 'guardian_invite' | 'guardian_signin';
+
 type PeekState =
   | { kind: 'loading' }
-  | { kind: 'ready'; email: string; needsDob: boolean };
+  | { kind: 'ready'; email: string; needsDob: boolean; purpose: Purpose };
 
 type ConfirmError =
   | 'invalid'
@@ -175,10 +177,18 @@ function CompletePage() {
     }
     (async () => {
       try {
-        const res = await api.get<{ email: string; expiresAt: number; needsDob: boolean }>(
-          `/api/auth/verify/peek?token=${encodeURIComponent(token)}`,
-        );
-        setPeek({ kind: 'ready', email: res.email, needsDob: res.needsDob });
+        const res = await api.get<{
+          email: string;
+          expiresAt: number;
+          needsDob: boolean;
+          purpose: Purpose;
+        }>(`/api/auth/verify/peek?token=${encodeURIComponent(token)}`);
+        setPeek({
+          kind: 'ready',
+          email: res.email,
+          needsDob: res.needsDob,
+          purpose: res.purpose,
+        });
       } catch (err) {
         const body =
           err instanceof ApiError &&
@@ -205,8 +215,12 @@ function CompletePage() {
     try {
       const body: Record<string, string> = { token };
       if (peek.kind === 'ready' && peek.needsDob) body.dob = dob;
-      await api.post('/api/auth/complete', body);
-      window.location.assign('/apply');
+      const res = await api.post<{ ok: true; purpose: Purpose }>(
+        '/api/auth/complete',
+        body,
+      );
+      const dest = res.purpose === 'applicant_signin' ? '/apply' : '/guardian';
+      window.location.assign(dest);
     } catch (err) {
       if (err instanceof ApiError) {
         const raw =
@@ -255,11 +269,22 @@ function CompletePage() {
     );
   }
 
+  const isGuardian = peek.purpose !== 'applicant_signin';
   return (
     <Prose>
-      <p className="smallcaps text-accent mb-6">Confirm sign-in</p>
+      <p className="smallcaps text-accent mb-6">
+        {isGuardian ? 'Parent portal sign-in' : 'Confirm sign-in'}
+      </p>
       <h1 className="mb-4">
-        You&rsquo;re about to sign in as <em>{peek.email}</em>.
+        {isGuardian ? (
+          <>
+            Sign in to the parent portal for <em>{peek.email}</em>.
+          </>
+        ) : (
+          <>
+            You&rsquo;re about to sign in as <em>{peek.email}</em>.
+          </>
+        )}
       </h1>
       <p className="text-muted mb-8 max-w-xl">
         Corporate email scanners sometimes open links before you do. To make
@@ -318,7 +343,11 @@ function CompletePage() {
           disabled={submitting}
           autoFocus={!peek.needsDob}
         >
-          {submitting ? 'Signing in…' : 'Continue to my application →'}
+          {submitting
+            ? 'Signing in…'
+            : isGuardian
+              ? 'Continue to parent portal →'
+              : 'Continue to my application →'}
         </button>
         <Link to="/auth/request" className="text-muted no-underline hover:underline">
           Cancel

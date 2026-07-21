@@ -229,6 +229,11 @@ export const QUESTIONS: readonly Question[] = [
   },
 
   // §2 Parent / guardian information
+  //
+  // The applicant tells us who to invite. As soon as this email is saved we
+  // email the parent a magic link to their own portal, where they'll sign
+  // consent and (if applicable) upload financial-aid documents. Phone,
+  // signature, and aid docs live on the guardian's side, not here.
   {
     key: 'guardian_name',
     section: 'guardian',
@@ -243,13 +248,7 @@ export const QUESTIONS: readonly Question[] = [
     type: 'email',
     prompt: 'Parent or guardian email address',
     required: true,
-  },
-  {
-    key: 'guardian_phone',
-    section: 'guardian',
-    type: 'phone',
-    prompt: 'Parent or guardian phone number',
-    required: true,
+    help: 'We’ll email your parent or guardian a link to their own portal where they can sign consent and (if you’re requesting aid) upload documents.',
   },
   {
     key: 'guardian_relationship',
@@ -352,39 +351,31 @@ export const QUESTIONS: readonly Question[] = [
   },
 
   // §5 Financial aid
+  //
+  // Applicants declare intent; supporting documentation is uploaded by the
+  // parent from the guardian portal so tax records never touch the
+  // applicant's account.
   {
     key: 'aid_level',
     section: 'financial_aid',
     type: 'single_select',
     prompt: 'Are you requesting financial aid?',
-    help: 'The application is need-blind — this answer is not shared with reviewers.',
+    help: 'The application is need-blind — this answer is not shared with reviewers. If you request aid, your parent or guardian will upload supporting documentation from their portal.',
     required: true,
     options: AID_LEVEL,
   },
-  {
-    key: 'aid_documentation',
-    section: 'financial_aid',
-    type: 'file_upload',
-    kind: 'aid_doc',
-    prompt: 'If you are requesting aid, please provide supporting documentation',
-    accept: ['application/pdf', 'image/png', 'image/jpeg'],
-    required: false,
-  },
 
   // §6 Signatures
+  //
+  // The applicant signs here. The guardian signs from their own portal —
+  // that consent has to actually come from them.
   {
     key: 'student_signature',
     section: 'signatures',
     type: 'signature',
     prompt: 'Applicant signature',
     required: true,
-  },
-  {
-    key: 'guardian_signature',
-    section: 'signatures',
-    type: 'signature',
-    prompt: 'Parent or guardian signature',
-    required: true,
+    help: 'Your parent or guardian will sign from their own portal after we email them.',
   },
 ];
 

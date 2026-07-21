@@ -85,7 +85,11 @@ pnpm --filter @rp2/frontend build
 
 echo "==> Migrate"
 cd backend
-sudo -u rp2 env $(grep -v '^#' .env | xargs) ./node_modules/.bin/tsx src/db/migrate.ts
+# migrate.ts imports env.ts, which does `import 'dotenv/config'`, so the
+# tsx process reads .env from its cwd on its own. No need to marshal env
+# vars through the shell (which fails silently anyway, since .env is
+# rp2-owned and the outer grep runs as ubuntu).
+sudo -u rp2 ./node_modules/.bin/tsx src/db/migrate.ts
 cd ..
 
 echo "==> Restart"

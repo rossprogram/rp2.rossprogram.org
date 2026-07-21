@@ -149,17 +149,24 @@ const CompleteSearch = z.object({ token: z.string().optional() });
 
 type PeekState =
   | { kind: 'loading' }
-  | { kind: 'ready'; email: string }
-  | { kind: 'failed'; reason: 'invalid' | 'expired' | 'used' };
+  | { kind: 'ready'; email: string; needsDob: boolean };
+
+type ConfirmError =
+  | 'invalid'
+  | 'expired'
+  | 'used'
+  | 'dob_required'
+  | 'invalid_dob'
+  | 'too_young'
+  | 'unknown';
 
 function CompletePage() {
   const { token } = authCompleteRoute.useSearch();
   const navigate = useNavigate();
   const [peek, setPeek] = useState<PeekState>({ kind: 'loading' });
+  const [dob, setDob] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [confirmError, setConfirmError] = useState<null | 'invalid' | 'expired' | 'used' | 'unknown'>(
-    null,
-  );
+  const [confirmError, setConfirmError] = useState<ConfirmError | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -168,20 +175,20 @@ function CompletePage() {
     }
     (async () => {
       try {
-        const res = await api.get<{ email: string; expiresAt: number }>(
+        const res = await api.get<{ email: string; expiresAt: number; needsDob: boolean }>(
           `/api/auth/verify/peek?token=${encodeURIComponent(token)}`,
         );
-        setPeek({ kind: 'ready', email: res.email });
+        setPeek({ kind: 'ready', email: res.email, needsDob: res.needsDob });
       } catch (err) {
-        const reason =
+        const body =
           err instanceof ApiError &&
           typeof err.body === 'object' &&
           err.body !== null &&
           'error' in err.body
-            ? ((err.body as { error: string }).error as PeekState['kind'] extends 'failed'
-                ? 'invalid' | 'expired' | 'used'
-                : never)
+            ? (err.body as { error: string }).error
             : 'invalid';
+        const reason: 'invalid' | 'expired' | 'used' =
+          body === 'expired' ? 'expired' : body === 'used' ? 'used' : 'invalid';
         navigate({ to: '/auth/verify', search: { error: reason } });
       }
     })();
@@ -189,23 +196,32 @@ function CompletePage() {
 
   async function onContinue() {
     if (!token) return;
+    if (peek.kind === 'ready' && peek.needsDob && !isValidIsoDate(dob)) {
+      setConfirmError('dob_required');
+      return;
+    }
     setSubmitting(true);
     setConfirmError(null);
     try {
-      await api.post('/api/auth/complete', { token });
-      // Hard-reload so beforeLoad guards re-run with the new session cookie.
+      const body: Record<string, string> = { token };
+      if (peek.kind === 'ready' && peek.needsDob) body.dob = dob;
+      await api.post('/api/auth/complete', body);
       window.location.assign('/apply');
     } catch (err) {
       if (err instanceof ApiError) {
-        const body =
+        const raw =
           typeof err.body === 'object' && err.body !== null && 'error' in err.body
             ? ((err.body as { error: string }).error as string)
             : 'unknown';
-        if (body === 'invalid' || body === 'expired' || body === 'used') {
-          setConfirmError(body);
-        } else {
-          setConfirmError('unknown');
-        }
+        const known: ConfirmError[] = [
+          'invalid',
+          'expired',
+          'used',
+          'dob_required',
+          'invalid_dob',
+          'too_young',
+        ];
+        setConfirmError(known.includes(raw as ConfirmError) ? (raw as ConfirmError) : 'unknown');
       } else {
         setConfirmError('unknown');
       }
@@ -222,16 +238,62 @@ function CompletePage() {
     );
   }
 
+  if (confirmError === 'too_young') {
+    return (
+      <Prose>
+        <p className="smallcaps text-accent mb-6">Sorry</p>
+        <h1 className="mb-4">ℝℙ² is open to applicants aged 13 and older.</h1>
+        <p className="text-muted mb-8">
+          We&rsquo;re unable to offer accounts to children under 13. If this was
+          a mistake, request a new sign-in link and enter the correct date of
+          birth.
+        </p>
+        <Link to="/auth/request" className="btn btn-primary no-underline">
+          Request a new link
+        </Link>
+      </Prose>
+    );
+  }
+
   return (
     <Prose>
       <p className="smallcaps text-accent mb-6">Confirm sign-in</p>
       <h1 className="mb-4">
-        You&rsquo;re about to sign in as <em>{peek.kind === 'ready' ? peek.email : ''}</em>.
+        You&rsquo;re about to sign in as <em>{peek.email}</em>.
       </h1>
       <p className="text-muted mb-8 max-w-xl">
         Corporate email scanners sometimes open links before you do. To make
         sure it&rsquo;s really you, click below to complete sign-in.
       </p>
+
+      {peek.needsDob && (
+        <div className="mb-8 max-w-md">
+          <label className="block">
+            <span className="block text-ink leading-snug">
+              Date of birth
+              <sup
+                aria-hidden
+                title="required"
+                className="text-accent font-sans font-normal text-[0.7em] ml-1 tracking-normal cursor-help"
+              >
+                ∗
+              </sup>
+            </span>
+            <span className="block text-muted text-sm italic mt-1">
+              ℝℙ² is open to applicants aged 13 and older. We store your date of
+              birth privately and never share it with reviewers.
+            </span>
+            <input
+              type="date"
+              className="field-input font-mono mt-3"
+              value={dob}
+              onChange={(e) => setDob(e.target.value)}
+              max={todayIso()}
+              required
+            />
+          </label>
+        </div>
+      )}
 
       {confirmError && (
         <p className="text-accent mb-6">
@@ -241,7 +303,11 @@ function CompletePage() {
               ? 'This link has already been used — please request a new one.'
               : confirmError === 'invalid'
                 ? 'This link is not valid.'
-                : 'Something went wrong. Please try again.'}
+                : confirmError === 'dob_required'
+                  ? 'Please enter your date of birth to continue.'
+                  : confirmError === 'invalid_dob'
+                    ? "That date doesn't look right — please check and try again."
+                    : 'Something went wrong. Please try again.'}
         </p>
       )}
 
@@ -249,8 +315,8 @@ function CompletePage() {
         <button
           className="btn btn-primary"
           onClick={onContinue}
-          disabled={submitting || peek.kind !== 'ready'}
-          autoFocus
+          disabled={submitting}
+          autoFocus={!peek.needsDob}
         >
           {submitting ? 'Signing in…' : 'Continue to my application →'}
         </button>
@@ -260,6 +326,16 @@ function CompletePage() {
       </div>
     </Prose>
   );
+}
+
+function isValidIsoDate(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+function todayIso(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 export const authCompleteRoute = createRoute({

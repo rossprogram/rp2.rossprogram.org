@@ -15,6 +15,7 @@ export const user = sqliteTable(
   {
     id: text('id').primaryKey(),
     email: text('email').notNull().unique(),
+    dob: text('dob'),
     createdAt: integer('created_at').notNull().default(nowSql),
     lastLoginAt: integer('last_login_at'),
   },
@@ -80,7 +81,6 @@ export const applicantProfile = sqliteTable('applicant_profile', {
     .references(() => user.id, { onDelete: 'cascade' }),
   legalName: text('legal_name'),
   preferredName: text('preferred_name'),
-  dob: text('dob'),
   gradeLevel: text('grade_level'),
   school: text('school'),
   location: text('location'),

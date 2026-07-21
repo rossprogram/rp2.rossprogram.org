@@ -20,11 +20,13 @@ function newToken(): string {
 export async function requestMagicLink(email: string, requestIp?: string | undefined): Promise<void> {
   const normalized = email.trim().toLowerCase();
 
-  let existing = db.select().from(user).where(eq(user.email, normalized)).get();
-  if (!existing) {
-    const id = nanoid();
-    db.insert(user).values({ id, email: normalized }).run();
-    existing = { id, email: normalized, createdAt: nowSeconds(), lastLoginAt: null };
+  let userId: string;
+  const existing = db.select().from(user).where(eq(user.email, normalized)).get();
+  if (existing) {
+    userId = existing.id;
+  } else {
+    userId = nanoid();
+    db.insert(user).values({ id: userId, email: normalized }).run();
   }
 
   const token = newToken();
@@ -32,7 +34,7 @@ export async function requestMagicLink(email: string, requestIp?: string | undef
   db.insert(magicLinkToken)
     .values({
       token,
-      userId: existing.id,
+      userId,
       expiresAt,
       requestIp: requestIp ?? null,
     })
@@ -65,7 +67,7 @@ export async function requestMagicLink(email: string, requestIp?: string | undef
 export type TokenFailure = 'invalid' | 'expired' | 'used';
 
 export type PreviewResult =
-  | { ok: true; email: string; expiresAt: number }
+  | { ok: true; email: string; expiresAt: number; needsDob: boolean }
   | { ok: false; reason: TokenFailure };
 
 /*
@@ -83,6 +85,7 @@ export function previewToken(token: string): PreviewResult {
       expiresAt: magicLinkToken.expiresAt,
       usedAt: magicLinkToken.usedAt,
       email: user.email,
+      dob: user.dob,
     })
     .from(magicLinkToken)
     .innerJoin(user, eq(user.id, magicLinkToken.userId))
@@ -91,30 +94,84 @@ export function previewToken(token: string): PreviewResult {
   if (!row) return { ok: false, reason: 'invalid' };
   if (row.usedAt !== null) return { ok: false, reason: 'used' };
   if (row.expiresAt <= now) return { ok: false, reason: 'expired' };
-  return { ok: true, email: row.email, expiresAt: row.expiresAt };
+  return {
+    ok: true,
+    email: row.email,
+    expiresAt: row.expiresAt,
+    needsDob: row.dob === null,
+  };
+}
+
+export const MINIMUM_AGE_YEARS = 13;
+
+export function ageInYears(dobIso: string, at: Date = new Date()): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dobIso);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const dob = new Date(Date.UTC(y, mo - 1, d));
+  if (Number.isNaN(dob.getTime())) return null;
+  let age = at.getUTCFullYear() - y;
+  const cm = at.getUTCMonth() + 1;
+  const cd = at.getUTCDate();
+  if (cm < mo || (cm === mo && cd < d)) age--;
+  return age;
 }
 
 export type ConsumeResult =
   | { ok: true; sessionId: string; userId: string }
-  | { ok: false; reason: TokenFailure };
+  | { ok: false; reason: TokenFailure | 'dob_required' | 'too_young' | 'invalid_dob' };
 
 /*
  * Atomically mark a token used and mint a session. Called from POST-only
  * routes; a scanner following the interstitial page will not fire this.
+ *
+ * If the user's DOB is not yet set, `dob` must be provided (YYYY-MM-DD).
+ * Enforces MINIMUM_AGE_YEARS at sign-in time; under-age users are rejected
+ * and their user record is deleted to avoid retaining any personal info.
  */
 export function consumeToken(
   token: string,
-  meta: { userAgent?: string | undefined; ip?: string | undefined },
+  meta: { userAgent?: string | undefined; ip?: string | undefined; dob?: string | undefined },
 ): ConsumeResult {
   const now = nowSeconds();
   const row = db
-    .select()
+    .select({
+      token: magicLinkToken.token,
+      userId: magicLinkToken.userId,
+      expiresAt: magicLinkToken.expiresAt,
+      usedAt: magicLinkToken.usedAt,
+      dob: user.dob,
+    })
     .from(magicLinkToken)
+    .innerJoin(user, eq(user.id, magicLinkToken.userId))
     .where(eq(magicLinkToken.token, token))
     .get();
   if (!row) return { ok: false, reason: 'invalid' };
   if (row.usedAt !== null) return { ok: false, reason: 'used' };
   if (row.expiresAt <= now) return { ok: false, reason: 'expired' };
+
+  let dobToStore: string | null = row.dob;
+  if (row.dob === null) {
+    if (!meta.dob) return { ok: false, reason: 'dob_required' };
+    const age = ageInYears(meta.dob);
+    if (age === null) return { ok: false, reason: 'invalid_dob' };
+    if (age < MINIMUM_AGE_YEARS) {
+      // Consume the token first so it can't be retried with a different DOB,
+      // then delete the user record entirely (cascades to token + session +
+      // any partial application data). We keep no personal info about the
+      // rejected under-13.
+      db.update(magicLinkToken)
+        .set({ usedAt: now })
+        .where(eq(magicLinkToken.token, token))
+        .run();
+      db.delete(user).where(eq(user.id, row.userId)).run();
+      return { ok: false, reason: 'too_young' };
+    }
+    dobToStore = meta.dob;
+  }
 
   const updated = db
     .update(magicLinkToken)
@@ -133,7 +190,10 @@ export function consumeToken(
       ip: meta.ip ?? null,
     })
     .run();
-  db.update(user).set({ lastLoginAt: now }).where(eq(user.id, row.userId)).run();
+  db.update(user)
+    .set({ lastLoginAt: now, dob: dobToStore })
+    .where(eq(user.id, row.userId))
+    .run();
 
   return { ok: true, sessionId, userId: row.userId };
 }

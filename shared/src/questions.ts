@@ -154,13 +154,6 @@ export const QUESTIONS: readonly Question[] = [
     required: true,
   },
   {
-    key: 'student_dob',
-    section: 'student_info',
-    type: 'date',
-    prompt: 'Date of birth',
-    required: true,
-  },
-  {
     key: 'student_grade_level',
     section: 'student_info',
     type: 'single_select',

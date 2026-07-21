@@ -15,6 +15,13 @@
       "when": 1784634057497,
       "tag": "0001_application_and_responses",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784638102315,
+      "tag": "0002_dob_on_user",
+      "breakpoints": true
     }
   ]
 }

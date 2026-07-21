@@ -12,6 +12,10 @@ import { env } from '../env.js';
 
 const CompleteBody = z.object({
   token: z.string().min(20).max(200),
+  dob: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD')
+    .optional(),
 });
 
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
@@ -64,7 +68,11 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     }
     const preview = previewToken(q.token);
     if (!preview.ok) return reply.code(400).send({ error: preview.reason });
-    return { email: preview.email, expiresAt: preview.expiresAt };
+    return {
+      email: preview.email,
+      expiresAt: preview.expiresAt,
+      needsDob: preview.needsDob,
+    };
   });
 
   // Actual consume. Only fires after an explicit Continue click.
@@ -83,8 +91,12 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       const result = consumeToken(parsed.data.token, {
         userAgent: req.headers['user-agent'],
         ip: req.ip,
+        dob: parsed.data.dob,
       });
-      if (!result.ok) return reply.code(400).send({ error: result.reason });
+      if (!result.ok) {
+        const status = result.reason === 'too_young' ? 403 : 400;
+        return reply.code(status).send({ error: result.reason });
+      }
       setSessionCookie(reply, result.sessionId);
       return { ok: true };
     },

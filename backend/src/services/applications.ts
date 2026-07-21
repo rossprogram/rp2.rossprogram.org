@@ -16,7 +16,6 @@ function nowSeconds(): number {
 const PROFILE_KEYS = {
   student_legal_name: 'legalName',
   student_preferred_name: 'preferredName',
-  student_dob: 'dob',
   student_grade_level: 'gradeLevel',
   student_school: 'school',
   student_location: 'location',

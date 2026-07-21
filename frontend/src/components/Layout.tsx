@@ -14,7 +14,7 @@ export function PageFrame({ children }: { children: ReactNode }) {
 
 function TopNav() {
   return (
-    <header className="rule-b relative z-30">
+    <header className="relative z-30">
       <div className="max-w-5xl mx-auto px-6 py-5 flex items-baseline justify-between">
         <Link to="/" className="no-underline hover:no-underline" aria-label="ℝℙ² home">
           <span className="font-serif text-[1.75rem] leading-none tracking-tight">
@@ -23,6 +23,14 @@ function TopNav() {
         </Link>
         <UserMenu />
       </div>
+      {/*
+        Rule as a positioned element (not border-bottom) so the dropdown at
+        z-20 inside the header's stacking context can paint above it.
+      */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-px bg-rule z-0 pointer-events-none"
+      />
     </header>
   );
 }

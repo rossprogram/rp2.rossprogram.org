@@ -50,7 +50,7 @@ function Wrapper({
       <label className="block">
         <span className="block text-ink leading-snug">
           {question.prompt}
-          {question.required && <span className="text-accent ml-1" aria-hidden>*</span>}
+          {question.required && <RequiredMark />}
         </span>
         {question.help && (
           <span className="block text-muted text-sm italic mt-1">{question.help}</span>
@@ -58,6 +58,17 @@ function Wrapper({
         <div className="mt-3">{children}</div>
       </label>
     </div>
+  );
+}
+
+export function RequiredMark() {
+  return (
+    <sup
+      aria-hidden
+      className="text-accent font-sans font-normal text-[0.7em] ml-1 tracking-normal"
+    >
+      ∗
+    </sup>
   );
 }
 

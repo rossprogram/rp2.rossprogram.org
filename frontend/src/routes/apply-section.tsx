@@ -5,7 +5,7 @@ import { fetchMe, fetchApplication } from '../api/client';
 import { SectionHeading } from '../components/Layout';
 import { SavedIndicator } from '../features/applicant/SavedIndicator';
 import { SectionNav, nextSectionSlug } from '../features/applicant/SectionNav';
-import { Field } from '../features/applicant/Field';
+import { Field, RequiredMark } from '../features/applicant/Field';
 import { useApplication, useSaveResponses } from '../features/applicant/useApplication';
 import { sectionBySlug, questionsInSection } from '@rp2/shared';
 
@@ -54,6 +54,9 @@ function SectionPage() {
 
       <main>
         <SectionHeading number={section.index}>{section.title}</SectionHeading>
+        <p className="text-muted italic text-sm mt-3">
+          Fields marked <RequiredMark /> are required.
+        </p>
 
         <div className="mt-8 prose-mm">
           {questions.map((question) => (

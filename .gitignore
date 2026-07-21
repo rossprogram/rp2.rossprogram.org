@@ -10,6 +10,12 @@ build/
 # Source planning docs — internal, not committed
 planning/
 
+# Emacs
+*~
+\#*\#
+.\#*
+*.elc
+
 # SQLite
 backend/dev.sqlite
 backend/dev.sqlite-*

@@ -3,7 +3,6 @@ import { rootRoute } from './root';
 import { Prose } from '../components/Layout';
 import { fetchMe, fetchApplication } from '../api/client';
 import { useApplication } from '../features/applicant/useApplication';
-import { api } from '../api/client';
 
 async function ensureAuth({
   context,
@@ -68,15 +67,6 @@ function StatusPage() {
         <Link to="/apply" className="btn btn-ghost no-underline">
           Review my responses
         </Link>
-        <button
-          className="btn btn-ghost"
-          onClick={async () => {
-            await api.post('/api/auth/logout');
-            window.location.assign('/');
-          }}
-        >
-          Sign out
-        </button>
       </div>
     </Prose>
   );

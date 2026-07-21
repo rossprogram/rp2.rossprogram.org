@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
+import { UserMenu } from './UserMenu';
 
 export function PageFrame({ children }: { children: ReactNode }) {
   return (
@@ -20,9 +21,7 @@ function TopNav() {
             ℝℙ²
           </span>
         </Link>
-        <nav className="smallcaps text-muted flex gap-6">
-          <span aria-hidden>— online mathematics —</span>
-        </nav>
+        <UserMenu />
       </div>
     </header>
   );

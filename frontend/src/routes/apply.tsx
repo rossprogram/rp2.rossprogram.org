@@ -1,8 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
 import { createRoute, Link, redirect } from '@tanstack/react-router';
 import { rootRoute } from './root';
 import { Prose } from '../components/Layout';
-import { fetchMe, api, fetchApplication } from '../api/client';
+import { fetchMe, fetchApplication } from '../api/client';
 import { useApplication } from '../features/applicant/useApplication';
 import { SavedIndicator } from '../features/applicant/SavedIndicator';
 import { SECTIONS } from '@rp2/shared';
@@ -30,7 +29,6 @@ async function ensureAuthAndPreload({
 
 function ApplyIndex() {
   const q = useApplication();
-  const me = useQuery({ queryKey: ['me'], queryFn: fetchMe });
   const submit = useSubmitApplication();
   const responses = q.data?.responses ?? {};
 
@@ -101,20 +99,6 @@ function ApplyIndex() {
         </button>
       </div>
 
-      <hr />
-
-      <div className="flex items-center justify-between text-muted text-sm">
-        <span className="italic">Signed in as {me.data?.email ?? '…'}</span>
-        <button
-          className="btn btn-ghost"
-          onClick={async () => {
-            await api.post('/api/auth/logout');
-            window.location.assign('/');
-          }}
-        >
-          Sign out
-        </button>
-      </div>
     </Prose>
   );
 }

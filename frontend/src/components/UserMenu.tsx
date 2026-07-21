@@ -58,7 +58,7 @@ export function UserMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 z-20 min-w-[14rem] border border-rule bg-field"
+          className="absolute right-0 top-full mt-2 z-20 min-w-[14rem] border border-rule bg-white"
           style={{ boxShadow: '0 4px 12px rgba(15,31,23,0.06)' }}
         >
           <div className="px-4 py-3 border-b border-rule">

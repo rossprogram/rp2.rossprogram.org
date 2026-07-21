@@ -50,7 +50,7 @@ function ApplyIndex() {
           saving={submit.isPending}
         />
       </div>
-      <h1 className="mb-4">Your application, in six sections.</h1>
+      <h1 className="mb-4">Your application</h1>
       <p className="text-muted mb-10">
         Save your work at any time — everything you type autosaves. You can return
         to any section in any order before submitting.

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { createRoute, Link, useParams, redirect } from '@tanstack/react-router';
 import { rootRoute } from './root';
 import { fetchMe, fetchApplication } from '../api/client';
-import { PageFrame, SectionHeading } from '../components/Layout';
+import { SectionHeading } from '../components/Layout';
 import { SavedIndicator } from '../features/applicant/SavedIndicator';
 import { SectionNav, nextSectionSlug } from '../features/applicant/SectionNav';
 import { Field } from '../features/applicant/Field';
@@ -96,17 +96,9 @@ function SectionPage() {
   );
 }
 
-function SectionRoute() {
-  return (
-    <PageFrame>
-      <SectionPage />
-    </PageFrame>
-  );
-}
-
 export const applySectionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/apply/$section',
   beforeLoad: ensureAuthAndSection,
-  component: SectionRoute,
+  component: SectionPage,
 });

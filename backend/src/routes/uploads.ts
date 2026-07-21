@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { env } from '../env.js';
 import { requireAuth } from '../auth/session.js';
 import { getOrCreateApplication } from '../services/applications.js';
 import { requestSignedUpload } from '../services/uploads.js';
@@ -31,7 +32,7 @@ export async function registerUploadRoutes(app: FastifyInstance): Promise<void> 
       if (!parsed.success) return reply.code(400).send({ error: 'invalid_body' });
       const userId = req.currentUser!.id;
       const appRow = getOrCreateApplication(userId);
-      const result = requestSignedUpload({
+      const result = await requestSignedUpload({
         userId,
         applicationId: appRow.id,
         kind: parsed.data.kind,
@@ -48,8 +49,9 @@ export async function registerUploadRoutes(app: FastifyInstance): Promise<void> 
     },
   );
 
-  // Presigned PUT target. Unauthenticated by design — the HMAC in the query
-  // string is the auth, matching S3 presigned-URL semantics.
+  // Local-only presigned PUT target. In S3 mode the client uploads directly
+  // to the S3 URL and this endpoint is not registered.
+  if (env.STORAGE_DRIVER !== 'local') return;
   app.route({
     method: 'PUT',
     url: '/api/uploads/put',

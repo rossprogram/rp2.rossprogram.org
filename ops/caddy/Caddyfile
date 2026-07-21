@@ -1,0 +1,41 @@
+{
+  email fowler@math.osu.edu
+}
+
+rp2.rossprogram.org {
+  encode gzip
+
+  # Proxy API calls to the Node backend
+  handle /api/* {
+    reverse_proxy 127.0.0.1:3000 {
+      # Large body allowance for file uploads in local-driver dev; in S3
+      # mode the uploads go direct to S3 and skip Caddy entirely.
+      header_up Host {host}
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-For {remote_host}
+    }
+  }
+
+  # Everything else: serve the built SPA
+  handle {
+    root * /opt/rp2/frontend/dist
+    try_files {path} /index.html
+    file_server
+  }
+
+  # Long-cache the hashed assets Vite emits under /assets/
+  @assets path /assets/*
+  header @assets Cache-Control "public, max-age=31536000, immutable"
+
+  # Security headers
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy strict-origin-when-cross-origin
+    -Server
+  }
+
+  # Cap upload body size at 25 MB (matches backend enforcement)
+  request_body {
+    max_size 25MB
+  }
+}

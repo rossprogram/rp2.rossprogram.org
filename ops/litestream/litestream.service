@@ -1,0 +1,17 @@
+[Unit]
+Description=Litestream — continuous SQLite replication to S3
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rp2
+Group=rp2
+ExecStart=/usr/bin/litestream replicate -config /etc/litestream.yml
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

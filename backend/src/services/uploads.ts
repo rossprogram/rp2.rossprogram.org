@@ -6,7 +6,7 @@ import {
   signUpload,
   deleteObject,
   type UploadTicket,
-} from '../integrations/storage/local.js';
+} from '../integrations/storage/index.js';
 
 const ALLOWED_CONTENT_TYPES = new Set([
   'application/pdf',
@@ -30,9 +30,11 @@ export type SignInput = {
 
 export type SignError = 'unsupported_type' | 'too_large' | 'app_locked';
 
-export function requestSignedUpload(
+export async function requestSignedUpload(
   input: SignInput,
-): { ok: true; ticket: UploadTicket } | { ok: false; reason: SignError } {
+): Promise<
+  { ok: true; ticket: UploadTicket } | { ok: false; reason: SignError }
+> {
   if (!ALLOWED_CONTENT_TYPES.has(input.contentType)) {
     return { ok: false, reason: 'unsupported_type' };
   }
@@ -46,7 +48,7 @@ export function requestSignedUpload(
     .get();
   if (!app || app.status !== 'draft') return { ok: false, reason: 'app_locked' };
 
-  const ticket = signUpload({
+  const ticket = await signUpload({
     userId: input.userId,
     kind: input.kind,
     contentType: input.contentType,

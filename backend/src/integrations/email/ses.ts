@@ -13,7 +13,7 @@ let SendEmailCommand: unknown = null;
 async function loadSes() {
   if (sesClient) return { sesClient, SendEmailCommand };
   const mod = await import('@aws-sdk/client-sesv2');
-  sesClient = new mod.SESv2Client({ region: env.AWS_REGION });
+  sesClient = new mod.SESv2Client({ region: env.SES_REGION });
   SendEmailCommand = mod.SendEmailCommand;
   return { sesClient, SendEmailCommand };
 }

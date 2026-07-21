@@ -27,12 +27,12 @@ export type UploadTicket = {
   contentType: string;
 };
 
-export function signUpload(input: {
+export async function signUpload(input: {
   userId: string;
   kind: 'transcript' | 'aid_doc';
   contentType: string;
   size: number;
-}): UploadTicket {
+}): Promise<UploadTicket> {
   const id = randomBytes(16).toString('base64url');
   const key = `${input.kind}/${input.userId}/${id}`;
   const expiresAt = Math.floor(Date.now() / 1000) + SIGN_TTL_SECONDS;

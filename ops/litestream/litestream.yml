@@ -1,0 +1,19 @@
+#
+# Litestream continuous-replication config for the RP2 SQLite database.
+# Copy to /etc/litestream.yml on the EC2 host.
+#
+# Credentials come from the EC2 instance role via IMDS — no access keys.
+#
+dbs:
+  - path: /var/lib/rp2/db.sqlite
+    replicas:
+      - type: s3
+        bucket: rp2.rossprogram.org
+        path: litestream/
+        region: us-east-2
+        # How often to snapshot the entire DB
+        snapshot-interval: 24h
+        # How long to keep snapshots (10 weeks of pilot + safety buffer)
+        retention: 168h
+        # WAL fragments are shipped continuously; this controls the file cadence
+        sync-interval: 1s

@@ -15,7 +15,7 @@ import {
   listFiles,
   registerFile,
 } from '../services/uploads.js';
-import { getObject } from '../integrations/storage/local.js';
+import { getObject } from '../integrations/storage/index.js';
 
 const RegisterFileBody = z.object({
   kind: z.enum(['transcript', 'aid_doc']),

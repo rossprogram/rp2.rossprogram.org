@@ -1,0 +1,41 @@
+[Unit]
+Description=RP2 backend (Fastify + SQLite)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rp2
+Group=rp2
+WorkingDirectory=/opt/rp2/backend
+EnvironmentFile=/opt/rp2/backend/.env
+# Run the TS source directly with tsx — no compile step to keep in sync.
+# node --import tsx loads TypeScript at runtime.
+ExecStart=/opt/rp2/backend/node_modules/.bin/tsx src/server.ts
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rp2
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+# Writable paths: DB + local uploads dir if you ever fall back to STORAGE_DRIVER=local
+ReadWritePaths=/var/lib/rp2 /opt/rp2/backend
+
+# Resource limits
+LimitNOFILE=65536
+TasksMax=1024
+
+[Install]
+WantedBy=multi-user.target

@@ -61,9 +61,25 @@ function MarketingNav() {
 function Footer() {
   return (
     <footer className="rule-t mt-20">
-      <div className="max-w-5xl mx-auto px-6 py-6 text-muted text-sm flex justify-between">
+      <div className="max-w-5xl mx-auto px-6 py-6 text-muted text-sm flex flex-wrap items-baseline justify-between gap-4">
         <span>© {new Date().getFullYear()}, Ross Mathematics Foundation</span>
-        <span className="italic">rp2 · pilot 2026</span>
+        <nav
+          aria-label="Site"
+          className="flex items-baseline gap-5 smallcaps"
+        >
+          <Link to="/privacy" className="no-underline hover:text-ink">
+            Privacy
+          </Link>
+          <Link to="/terms" className="no-underline hover:text-ink">
+            Terms
+          </Link>
+          <a
+            href="mailto:ross@rossprogram.org"
+            className="no-underline hover:text-ink font-mono normal-case tracking-normal"
+          >
+            ross@rossprogram.org
+          </a>
+        </nav>
       </div>
     </footer>
   );

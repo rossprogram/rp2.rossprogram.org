@@ -2,6 +2,8 @@ import { rootRoute } from './routes/root';
 import { indexRoute } from './routes/index';
 import { parentsRoute } from './routes/parents';
 import { faqRoute } from './routes/faq';
+import { privacyRoute } from './routes/privacy';
+import { termsRoute } from './routes/terms';
 import {
   authRequestRoute,
   authCheckEmailRoute,
@@ -16,6 +18,8 @@ export const routeTree = rootRoute.addChildren([
   indexRoute,
   parentsRoute,
   faqRoute,
+  privacyRoute,
+  termsRoute,
   authRequestRoute,
   authCheckEmailRoute,
   authVerifyRoute,

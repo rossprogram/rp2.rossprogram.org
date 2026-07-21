@@ -15,12 +15,13 @@ export function PageFrame({ children }: { children: ReactNode }) {
 function TopNav() {
   return (
     <header className="relative z-30">
-      <div className="max-w-5xl mx-auto px-6 py-5 flex items-baseline justify-between">
+      <div className="max-w-5xl mx-auto px-6 py-5 flex items-baseline justify-between gap-6">
         <Link to="/" className="no-underline hover:no-underline" aria-label="ℝℙ² home">
           <span className="font-serif text-[1.75rem] leading-none tracking-tight">
             ℝℙ²
           </span>
         </Link>
+        <MarketingNav />
         <UserMenu />
       </div>
       {/*
@@ -32,6 +33,28 @@ function TopNav() {
         className="absolute inset-x-0 bottom-0 h-px bg-rule z-0 pointer-events-none"
       />
     </header>
+  );
+}
+
+function MarketingNav() {
+  return (
+    <nav
+      aria-label="Program"
+      className="hidden md:flex items-baseline gap-6 smallcaps text-muted"
+    >
+      <Link to="/" hash="courses" className="no-underline hover:text-ink">
+        Courses
+      </Link>
+      <Link to="/" hash="admissions" className="no-underline hover:text-ink">
+        Admissions
+      </Link>
+      <Link to="/parents" className="no-underline hover:text-ink">
+        For parents
+      </Link>
+      <Link to="/faq" className="no-underline hover:text-ink">
+        FAQ
+      </Link>
+    </nav>
   );
 }
 

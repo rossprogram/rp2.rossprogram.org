@@ -46,3 +46,36 @@ export async function fetchMe(): Promise<Me | null> {
     throw err;
   }
 }
+
+export type ApplicationView = {
+  id: string;
+  status:
+    | 'draft'
+    | 'submitted'
+    | 'under_review'
+    | 'accepted'
+    | 'waitlisted'
+    | 'rejected'
+    | 'withdrawn';
+  submittedAt: number | null;
+  updatedAt: number;
+  responses: Record<string, unknown>;
+};
+
+export function fetchApplication(): Promise<ApplicationView> {
+  return api.get<ApplicationView>('/api/application/me');
+}
+
+export function patchResponses(
+  responses: Record<string, unknown>,
+): Promise<{ updatedAt: number }> {
+  return api.patch('/api/application/me/responses', { responses });
+}
+
+export function submitApplication(): Promise<{
+  id: string;
+  status: 'submitted';
+  submittedAt: number;
+}> {
+  return api.post('/api/application/me/submit');
+}

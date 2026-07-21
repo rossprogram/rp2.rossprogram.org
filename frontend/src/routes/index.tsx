@@ -1,6 +1,21 @@
-import { createRoute, Link } from '@tanstack/react-router';
+import { createRoute, Link, redirect } from '@tanstack/react-router';
 import { rootRoute } from './root';
 import { Prose } from '../components/Layout';
+import { fetchMe, fetchApplication } from '../api/client';
+
+async function redirectIfAuthed({
+  context,
+}: {
+  context: { queryClient: import('@tanstack/react-query').QueryClient };
+}) {
+  const me = await fetchMe();
+  if (!me) return;
+  const app = await context.queryClient.ensureQueryData({
+    queryKey: ['application'],
+    queryFn: fetchApplication,
+  });
+  throw redirect({ to: app.status === 'draft' ? '/apply' : '/status' });
+}
 
 function IndexPage() {
   return (
@@ -62,5 +77,6 @@ function IndexPage() {
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  beforeLoad: redirectIfAuthed,
   component: IndexPage,
 });

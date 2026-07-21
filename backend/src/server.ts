@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import { env } from './env.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerApplicationRoutes } from './routes/application.js';
 import { attachSession } from './auth/session.js';
 import { runMigrations } from './db/migrate.js';
 
@@ -23,6 +24,7 @@ async function build() {
   app.get('/api/health', async () => ({ ok: true }));
 
   await registerAuthRoutes(app);
+  await registerApplicationRoutes(app);
 
   return app;
 }

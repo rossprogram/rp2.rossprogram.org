@@ -1,23 +1,13 @@
-import { createRoute, Link, redirect } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
+import { createRoute, Link } from '@tanstack/react-router';
 import { rootRoute } from './root';
 import { Prose } from '../components/Layout';
-import { fetchMe, fetchApplication } from '../api/client';
-
-async function redirectIfAuthed({
-  context,
-}: {
-  context: { queryClient: import('@tanstack/react-query').QueryClient };
-}) {
-  const me = await fetchMe();
-  if (!me) return;
-  const app = await context.queryClient.ensureQueryData({
-    queryKey: ['application'],
-    queryFn: fetchApplication,
-  });
-  throw redirect({ to: app.status === 'draft' ? '/apply' : '/status' });
-}
+import { fetchMe } from '../api/client';
 
 function IndexPage() {
+  const me = useQuery({ queryKey: ['me'], queryFn: fetchMe });
+  const signedIn = !!me.data;
+
   return (
     <Prose>
       <p className="smallcaps text-accent mb-8">ℝℙ² — Online Program</p>
@@ -40,12 +30,20 @@ function IndexPage() {
       </p>
 
       <div className="mt-10 flex items-center gap-4">
-        <Link to="/auth/request" className="btn btn-primary no-underline">
-          Begin your application
-        </Link>
-        <Link to="/auth/request" className="btn btn-ghost no-underline">
-          Continue where you left off
-        </Link>
+        {signedIn ? (
+          <Link to="/apply" className="btn btn-primary no-underline">
+            Go to my application →
+          </Link>
+        ) : (
+          <>
+            <Link to="/auth/request" className="btn btn-primary no-underline">
+              Begin your application
+            </Link>
+            <Link to="/auth/request" className="btn btn-ghost no-underline">
+              Continue where you left off
+            </Link>
+          </>
+        )}
       </div>
 
       <hr />
@@ -77,6 +75,5 @@ function IndexPage() {
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  beforeLoad: redirectIfAuthed,
   component: IndexPage,
 });

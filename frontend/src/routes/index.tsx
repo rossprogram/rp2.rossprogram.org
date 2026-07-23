@@ -40,14 +40,12 @@ function Hero({ signedIn }: { signedIn: boolean }) {
           <h1 className="font-serif font-bold text-[clamp(4rem,10vw,6.5rem)] leading-none tracking-tight">
             ℝℙ²
           </h1>
-          <p className="mt-6 text-[clamp(1.15rem,2.4vw,1.4rem)] leading-snug max-w-[30ch]">
-            A ten-week online seminar in proof-based mathematics, for
-            high-school students who want to think deeply about hard problems.
+          <p className="mt-6 text-[clamp(1.15rem,2.4vw,1.4rem)] leading-snug max-w-[32ch]">
+            A ten-week experience of proof-based mathematics. For high-school
+            students. September 28 through December 11, 2026, with a break for
+            US Thanksgiving.
           </p>
           <p className="mt-6 font-mono text-sm text-muted">
-            <b className="text-ink font-normal">Sept 28 – Dec 11, 2026</b> · one
-            week off at Thanksgiving
-            <br />
             Priority application deadline:{' '}
             <b className="text-ink font-normal">August 14</b>
           </p>
@@ -129,32 +127,32 @@ function Note({
 function About() {
   return (
     <section id="about" className="pt-14">
-      <SectionHead n={1}>What this is</SectionHead>
+      <SectionHead n={1}>What is&hellip; ℝℙ²?</SectionHead>
       <p>
-        ℝℙ² (&ldquo;Ross Projective&rdquo;) is the new online program of the{' '}
-        <b>Ross Mathematics Program</b>, one of the longest-running summer
-        mathematics programs in the United States. It brings the Ross approach
-        &mdash; think deeply of simple things &mdash; to a ten-week online
-        term.
+        ℝℙ² is the real projective plane &mdash; where every two points meet
+        in a line. Online. The Ross Program, extended with (on)line at
+        infinity.
       </p>
       <p className="mt-4">
-        Each course is built around a weekly Ross-style problem set: a sequence
-        of problems that leads you to discover a piece of mathematics for
-        yourself, rather than a textbook that hands it to you. You will spend
-        the week wrestling with the problems, meet live to work on mathematics
-        with your cohort and a graduate-student mentor, and submit written
-        proofs that receive careful, personal feedback.
+        More seriously, this is our way of bringing the{' '}
+        <b>Ross Mathematics Program</b> (running since 1957!) to more people
+        during the academic year. We&rsquo;re taking our usual approach of
+        &ldquo;thinking deeply of simple things&rdquo; and offering that
+        experience during the school year.
       </p>
       <p className="mt-4">
-        This is not a lecture course, and it is not a video series. It is a
-        seminar: small groups, live conversation, and sustained engagement with
-        problems that are genuinely hard.
+        Like the summer program, each online academic-year course is organized
+        around problem sets. The problem sets are written so that you discover
+        the mathematics yourself instead of reading it out of a textbook. You
+        spend the week working on the problems, you&rsquo;ll meet once a week
+        with your group and a graduate-student mentor to do math together, and
+        you&rsquo;ll turn in written proofs, which we read carefully and
+        return with comments.
       </p>
-      <Note label="A note on the name">
-        ℝℙ² denotes the real projective plane &mdash; the ordinary plane, plus
-        one extra point for every direction, so that parallel lines finally get
-        to meet. It seemed like the right name for the Ross Program, extended.
-      </Note>
+      <p className="mt-4">
+        There aren&rsquo;t lectures to watch. It&rsquo;s a seminar: a group of
+        people doing math together for ten weeks.
+      </p>
     </section>
   );
 }
@@ -164,37 +162,37 @@ function Week() {
     [
       '90 min · live session',
       <>
-        <b>Problem seminar.</b> A short framing from your mentor &mdash; twenty
-        or thirty minutes of recap, discussion, or new ideas &mdash; and then
-        the real work: an hour of collaborative problem solving in small
-        breakout cohorts. Most of the session is you doing mathematics, out
-        loud, with other people.
+        <b>Live session.</b> Your mentor talks for maybe twenty or thirty
+        minutes &mdash; a review, some discussion, new ideas &mdash; and then
+        we split into small groups and work on problems for the rest of the
+        session. Most of it is you doing math out loud with other people.
       </>,
     ],
     [
       '90 min · office hour',
       <>
-        <b>Office hour.</b> Optional but encouraged. Come for help with the
-        problem set, extension problems if you are ahead, more examples if you
-        want them, or unhurried mathematical conversation.
+        <b>Office hour.</b> Optional. Come if you&rsquo;re stuck on the
+        problem set, or if you&rsquo;re ahead and want harder problems, or if
+        you just want to talk about math for a while.
       </>,
     ],
     [
       'Your own time',
       <>
-        <b>The problem set.</b> The heart of the program. You will write real
-        proofs and submit them each week, and your mentor and course assistants
-        will return them with written feedback &mdash; on your mathematics and
-        on your mathematical writing.
+        <b>The problem set.</b> This is really the point of the experience.
+        You write down your ideas, write up (!) your solutions, and turn
+        it in each week; your mentor and course assistants respond with
+        comments on your math and on your writing. It is such a wonderful
+        thing to get feedback on your work and on your writing.
       </>,
     ],
     [
-      'Anytime',
+      'Everything else',
       <>
-        <b>The community.</b> A moderated Discord server connects students
-        across all courses, with program-wide events during the term: guest
-        lectures, panels on college and mathematical careers, and student
-        showcases.
+        <b>The community.</b> A Discord server connects students across all
+        the courses, and we run some program-wide things during the term:
+        guest talks, a panel on college and math careers, student showcases,
+        a few games.
       </>,
     ],
   ];
@@ -202,8 +200,8 @@ function Week() {
     <section id="week" className="pt-14">
       <SectionHead n={2}>A week at ℝℙ²</SectionHead>
       <p>
-        Every course meets on a fixed weekly schedule, set around the
-        availability of admitted students. A typical week looks like this:
+        Courses meet at a fixed weekly time, which we set once we know when
+        admitted students are actually available.
       </p>
       <div className="mt-6 border-t border-rule">
         {rows.map(([when, what], i) => (
@@ -217,9 +215,9 @@ function Week() {
         ))}
       </div>
       <p className="mt-5">
-        Plan on the three live hours plus several more with the problem set.
-        The problems reward time; students who make room for them each week
-        get the most out of the term.
+        So: three live hours a week, plus however long you give the problem
+        set. The students who give the problems plenty of time are the ones
+        who get the most out of the experience.
       </p>
     </section>
   );
@@ -230,25 +228,24 @@ function WhoShouldApply() {
     <section id="who" className="pt-14">
       <SectionHead n={3}>Who should apply</SectionHead>
       <p>
-        ℝℙ² is for high-school students, anywhere in the world, who want to
-        engage seriously with mathematics.{' '}
-        <b>Prior proof-writing experience is not required.</b> Some of our
-        students will have competition backgrounds or previous proof courses;
-        others will be writing their first proofs with us. Courses and cohorts
-        are arranged so that both can thrive.
+        High-school students, anywhere in the world, who want to dig into
+        some math. <b>You do not need to have written proofs before.</b> Some
+        Ross participants arrive with a lot of competition experience or a
+        previous proof course; others write their first proofs with us.
       </p>
       <p className="mt-4">
-        What we do look for is appetite: curiosity, persistence, and a
-        willingness to stay stuck on a problem longer than feels comfortable.
-        If you have ever been unable to put a math problem down, this program
-        was designed for you.
+        The thing we actually look for is whether you like being stuck
+        &mdash; whether you&rsquo;ll sit with a problem for a really long
+        time. If you have ever been unable to put a math problem down even
+        while you were stuck, please apply.
       </p>
       <Note label="Relationship to the residential program">
-        ℝℙ² is a distinct program from the residential Ross summer program,
-        which remains the flagship Ross experience. Participating online is not
-        required for residential admission, and does not guarantee it &mdash;
-        but it is a genuine Ross experience in its own right, and a natural way
-        to grow into the community.
+        ℝℙ² is a separate activity from the residential, in-person summer
+        program, which remains our flagship experience. Doing the online
+        program is not required for residential admission and doesn&rsquo;t
+        guarantee it &mdash; but we want to bring this sort of experience to
+        more people, and ℝℙ² is our way to keep Ross going during the
+        academic year.
       </Note>
     </section>
   );
@@ -265,23 +262,23 @@ function Admissions() {
     [
       'Week of August 21',
       <>
-        First-round offers go out, including your course placement, meeting
-        time, and financial-aid decision.
+        First-round offers go out, with your course placement, meeting time,
+        and financial-aid decision.
       </>,
     ],
     [
       'September',
       <>
-        Families confirm enrollment; students are added to the course page,
-        Discord, and Gradescope. Remaining seats are offered to waitlisted and
-        late applicants as space allows.
+        Families confirm enrollment; students get added to the course page,
+        Discord, and Gradescope. If seats remain, we go to the waitlist and
+        late applicants.
       </>,
     ],
     [
       'September 28',
       <>
-        Classes begin. Ten instructional weeks, with a one-week Thanksgiving
-        break, concluding December 11.
+        Classes start. Ten weeks of instruction, one week off at Thanksgiving,
+        done December 11.
       </>,
     ],
   ];
@@ -289,18 +286,18 @@ function Admissions() {
     <section id="admissions" className="pt-14 scroll-mt-24">
       <SectionHead n={4}>Admissions &amp; dates</SectionHead>
       <p>
-        The application is short and reflective rather than competitive. We
-        ask for basic information, a school transcript, your weekly
-        availability, your course preferences, and a few written reflections on
-        how you think about mathematics &mdash; what you do when you are stuck,
-        how your understanding changes, how you work with others. There is no
-        entrance exam.
+        The application is short &mdash; we know you are busy. We ask for
+        basic information, a transcript, your weekly availability, your
+        course preferences, and a few short written answers about how you
+        think about math: what you do when you&rsquo;re stuck, how you work
+        with other people. There is no entrance exam. (Those are difficult,
+        anyway, in the age of AI.)
       </p>
       <p className="mt-4">
-        We read applications holistically and use the whole applicant pool to
-        finalize course offerings, section times, and small problem-solving
-        cohorts. That is why the priority deadline matters: it lets us schedule
-        sections around <i>your</i> availability.
+        We read what you write, and we use the whole pool of applications to
+        decide which courses to run and when sections meet. That&rsquo;s why
+        the priority deadline matters: applying early lets us schedule
+        sections around <i>you</i>.
       </p>
       <ol className="mt-6 border-l-2 border-rule pl-6 space-y-6">
         {items.map(([d, t], i) => (
@@ -323,16 +320,16 @@ function Tuition() {
     <section id="tuition" className="pt-14 pb-14 scroll-mt-24">
       <SectionHead n={5}>Tuition &amp; financial aid</SectionHead>
       <p>
-        Tuition for the ten-week term is approximately <b>$1,500</b>, which
-        covers all instruction, materials, feedback, and community programming.
+        Tuition for the ten-week term is <b>$1,500</b>. That covers our
+        costs: instruction, materials, feedback, and community programming.
       </p>
       <p className="mt-4">
-        Cost should never be the reason a student doesn&rsquo;t apply.
-        Need-based financial aid &mdash; up to and including{' '}
-        <b>full scholarships</b> &mdash; is available, and admissions are{' '}
-        <b>need-blind</b>: requesting aid has no effect on your admission
-        decision. The application includes a simple aid request; families are
-        welcome to write to us with questions before applying.
+        If the cost is a problem, apply anyway. We have need-based aid{' '}
+        &mdash; <b>up to and including full scholarships</b> &mdash; and
+        admissions are <b>need-blind</b>, so asking for aid has no effect on
+        whether you get in. There is a simple aid request built into the
+        application. Parents and guardians are welcome to email us with
+        questions before applying.
       </p>
     </section>
   );
@@ -360,13 +357,17 @@ function ClosingCTA({ signedIn }: { signedIn: boolean }) {
               Start an application
             </Link>
           )}
+        </div>
+        <p className="mt-8 text-sm text-muted">
+          Questions? Write to us at{' '}
           <a
             href="mailto:ross@rossprogram.org"
-            className="btn btn-ghost no-underline"
+            className="font-mono text-ink no-underline hover:underline"
           >
-            Write to us with questions
+            ross@rossprogram.org
           </a>
-        </div>
+          .
+        </p>
       </div>
     </div>
   );

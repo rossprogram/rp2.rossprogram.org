@@ -17,6 +17,17 @@ Litestream replicating to S3. Applicant uploads live in S3 directly.
 - **IAM role** attached to the EC2 instance, containing the policy in
   `ops/iam/rp2-instance-role.json` (SES send in us-east-1, S3 access on both
   buckets).
+- **S3 CORS** on the uploads bucket, from `ops/s3/cors.json`:
+
+  ```bash
+  aws s3api put-bucket-cors \
+    --bucket rp2.rossprogram.org \
+    --cors-configuration file://ops/s3/cors.json
+  ```
+
+  Without this, browser PUTs to the presigned URL fail the preflight
+  (`No 'Access-Control-Allow-Origin' header is present`). Re-run whenever
+  `cors.json` changes.
 
 The three services on the box are:
 

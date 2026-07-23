@@ -107,16 +107,11 @@ const PARTICIPATION_STYLE: readonly Option[] = [
   { value: 'written', label: 'I prefer written discussion, but I am willing to speak when needed' },
 ];
 
-// Course list per planning/Student Application.txt. Diverges from the overview
-// document — flagged as an open product decision in the plan.
 const COURSE_OPTIONS: readonly Option[] = [
-  { value: 'topology', label: 'Point-set topology' },
-  { value: 'ggt', label: 'Geometric group theory' },
-  { value: 'lean', label: 'Lean' },
-  { value: 'voting', label: 'Voting theory and social choice' },
-  { value: 'graph', label: 'Graph theory and combinatorics' },
-  { value: 'crypto', label: 'Cryptography' },
-  { value: 'galois', label: 'Galois theory' },
+  { value: 'topology', label: 'Point-Set Topology' },
+  { value: 'ggt', label: 'Geometric Group Theory' },
+  { value: 'cgt', label: 'Combinatorial Game Theory' },
+  { value: 'quadratic', label: 'Quadratic Forms' },
 ];
 
 const AID_LEVEL: readonly Option[] = [
@@ -275,15 +270,6 @@ export const QUESTIONS: readonly Question[] = [
     type: 'long_text',
     prompt: 'Briefly explain why you are interested in your first-choice course',
     required: true,
-  },
-  {
-    key: 'second_choice_ok',
-    section: 'math_background',
-    type: 'single_select',
-    prompt:
-      'If your first-choice course is not available at a time you can attend, would you be interested in your second-choice course?',
-    required: true,
-    options: YES_NO,
   },
   {
     key: 'proof_experience',

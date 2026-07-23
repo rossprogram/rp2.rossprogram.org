@@ -13,7 +13,6 @@ function IndexPage() {
       <main className="max-w-3xl mx-auto px-6">
         <About />
         <Week />
-        <Courses />
         <WhoShouldApply />
         <Admissions />
         <Tuition />
@@ -62,7 +61,7 @@ function Hero({ signedIn }: { signedIn: boolean }) {
                 Start an application
               </Link>
             )}
-            <Link to="/" hash="courses" className="btn btn-ghost no-underline">
+            <Link to="/courses" className="btn btn-ghost no-underline">
               See the courses
             </Link>
           </div>
@@ -226,85 +225,10 @@ function Week() {
   );
 }
 
-function Courses() {
-  const courses: { tag: string; title: string; body: React.ReactNode }[] = [
-    {
-      tag: 'Topology',
-      title: 'Point-Set Topology',
-      body: (
-        <>
-          What survives when you forget about distance and keep only
-          &ldquo;nearness&rdquo;? Open sets, continuity, compactness,
-          connectedness &mdash; the language in which modern analysis and
-          geometry are written. An online descendant of a course that has
-          become a favorite at the residential program.
-        </>
-      ),
-    },
-    {
-      tag: 'Algebra · Geometry',
-      title: 'Geometric Group Theory',
-      body: (
-        <>
-          Groups are usually met as algebra; here they become shapes. Cayley
-          graphs, symmetries of tilings and trees, and the surprising idea that
-          you can study a group by studying the geometry of a space it acts on.
-        </>
-      ),
-    },
-    {
-      tag: 'Combinatorics',
-      title: 'Combinatorial Game Theory',
-      body: (
-        <>
-          Nim, Hackenbush, and games you have never heard of &mdash; analyzed
-          completely. Winning strategies are not guessed but proved, and the
-          values of games turn out to form a number system stranger and larger
-          than the reals.
-        </>
-      ),
-    },
-    {
-      tag: 'Number theory',
-      title: 'Quadratic Forms',
-      body: (
-        <>
-          Which whole numbers can be written as <i>x</i>² + <i>y</i>²? As{' '}
-          <i>x</i>² + 2<i>y</i>²? A visual, hands-on tour of binary quadratic
-          forms in the spirit of John Conway&rsquo;s{' '}
-          <i>The Sensual (Quadratic) Form</i>, built around his
-          &ldquo;topograph&rdquo; &mdash; a picture that makes a classical
-          subject suddenly obvious.
-        </>
-      ),
-    },
-  ];
-  return (
-    <section id="courses" className="pt-14 scroll-mt-24">
-      <SectionHead n={3}>Courses · Fall 2026</SectionHead>
-      <p>
-        Each student enrolls in one course for the term. These are the courses
-        planned for the pilot; the final list, and the number of sections of
-        each, will depend on applicant interest and scheduling, so the
-        application asks you to rank your preferences.
-      </p>
-      <div className="mt-6 border-t border-rule">
-        {courses.map((c, i) => (
-          <div key={i} className="py-6 border-b border-rule">
-            <div className="smallcaps text-muted mb-1">{c.tag}</div>
-            <h3 className="font-serif text-xl font-semibold">{c.title}</h3>
-            <p className="mt-2">{c.body}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function WhoShouldApply() {
   return (
     <section id="who" className="pt-14">
-      <SectionHead n={4}>Who should apply</SectionHead>
+      <SectionHead n={3}>Who should apply</SectionHead>
       <p>
         ℝℙ² is for high-school students, anywhere in the world, who want to
         engage seriously with mathematics.{' '}
@@ -363,7 +287,7 @@ function Admissions() {
   ];
   return (
     <section id="admissions" className="pt-14 scroll-mt-24">
-      <SectionHead n={5}>Admissions &amp; dates</SectionHead>
+      <SectionHead n={4}>Admissions &amp; dates</SectionHead>
       <p>
         The application is short and reflective rather than competitive. We
         ask for basic information, a school transcript, your weekly
@@ -397,7 +321,7 @@ function Admissions() {
 function Tuition() {
   return (
     <section id="tuition" className="pt-14 pb-14 scroll-mt-24">
-      <SectionHead n={6}>Tuition &amp; financial aid</SectionHead>
+      <SectionHead n={5}>Tuition &amp; financial aid</SectionHead>
       <p>
         Tuition for the ten-week term is approximately <b>$1,500</b>, which
         covers all instruction, materials, feedback, and community programming.

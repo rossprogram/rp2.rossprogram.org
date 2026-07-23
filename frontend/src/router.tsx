@@ -1,5 +1,6 @@
 import { rootRoute } from './routes/root';
 import { indexRoute } from './routes/index';
+import { coursesRoute } from './routes/courses';
 import { parentsRoute } from './routes/parents';
 import { faqRoute } from './routes/faq';
 import { privacyRoute } from './routes/privacy';
@@ -18,6 +19,7 @@ import { guardianApplicantRoute } from './routes/guardian-applicant';
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
+  coursesRoute,
   parentsRoute,
   faqRoute,
   privacyRoute,

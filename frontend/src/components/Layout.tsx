@@ -42,7 +42,7 @@ function MarketingNav() {
       aria-label="Program"
       className="hidden md:flex items-baseline gap-6 smallcaps text-muted"
     >
-      <Link to="/" hash="courses" className="no-underline hover:text-ink">
+      <Link to="/courses" className="no-underline hover:text-ink">
         Courses
       </Link>
       <Link to="/" hash="admissions" className="no-underline hover:text-ink">

@@ -1,19 +1,42 @@
 :root {
   color-scheme: light;
 
+  /* Palette */
   --paper: #f4f7f2;
   --field-bg: #ffffff;
+  --field-tint: #fbfcf9; /* subtle warmer field background */
   --ink: #0f1f17;
-  --muted: #5a6b60;
+  --muted: #4e5d54; /* darkened from #5a6b60 to sit above WCAG AA on paper */
   --rule: #d4dcd5;
+  --rule-strong: #b7c2ba;
   --accent: #14532d;
   --accent-hover: #0f3d22;
   --accent-soft: #dbe9de;
+  --accent-glow: rgba(20, 83, 45, 0.16); /* focus rings */
+  --error: #8a1c1c;
 
+  /* Typography */
   --font-serif: 'Computer Modern Serif', 'Latin Modern Roman', Georgia, serif;
   --font-sans: 'Computer Modern Sans', 'CMU Sans Serif', system-ui, sans-serif;
   --font-mono: 'Computer Modern Typewriter', 'Latin Modern Mono', ui-monospace, monospace;
 
+  /* Measures — line lengths for prose */
   --measure: 68ch;
   --measure-narrow: 42ch;
+
+  /* Vertical rhythm — built off the base line-height so verticals compose. */
+  --s-1: 0.5rem;
+  --s-2: 1rem;
+  --s-3: 1.5rem;
+  --s-4: 2rem;
+  --s-6: 3rem;
+  --s-8: 4rem;
+  --s-section: 3.5rem; /* space between top-level sections */
+  --s-page-y: 4.5rem; /* page top/bottom padding */
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-med: 180ms;
+  --dur-slow: 320ms;
 }

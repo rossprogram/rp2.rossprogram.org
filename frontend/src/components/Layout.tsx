@@ -89,6 +89,14 @@ export function Prose({ children }: { children: ReactNode }) {
   return <div className="prose-mm mx-auto px-6 py-12">{children}</div>;
 }
 
+export function EndMark() {
+  return (
+    <div aria-hidden className="end-mark">
+      ▪
+    </div>
+  );
+}
+
 export function SectionHeading({
   number,
   children,

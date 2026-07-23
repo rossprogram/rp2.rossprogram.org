@@ -11,6 +11,9 @@
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Ligatures + old-style figures for a book-quality feel. Tabular figures
+       overrule this class-by-class where columns matter (see .tabular-nums). */
+    font-feature-settings: 'liga' 1, 'dlig' 1, 'onum' 1;
   }
 
   body {
@@ -20,33 +23,43 @@
   h1, h2, h3, h4 {
     font-family: var(--font-serif);
     color: var(--ink);
-    letter-spacing: -0.005em;
-    line-height: 1.15;
+    line-height: 1.12;
+    /* Reset feature settings on display sizes: old-style figures look small
+       inside a headline. */
+    font-feature-settings: 'liga' 1;
   }
 
   h1 {
-    font-size: 2.6rem;
+    /* Fluid, book-jacket scale. Tightens tracking as size grows. */
+    font-size: clamp(2.3rem, 2rem + 2.2vw, 3.1rem);
     font-weight: 400;
+    letter-spacing: -0.012em;
   }
 
   h2 {
-    font-size: 1.75rem;
+    font-size: clamp(1.55rem, 1.4rem + 0.9vw, 1.9rem);
     font-weight: 400;
+    letter-spacing: -0.006em;
   }
 
   h3 {
-    font-size: 1.25rem;
+    font-size: 1.2rem;
     font-weight: 700;
+    letter-spacing: -0.003em;
   }
 
   a {
     color: var(--accent);
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
+    transition:
+      color var(--dur-med) var(--ease),
+      text-decoration-color var(--dur-med) var(--ease);
   }
 
   a:hover {
     text-decoration-style: solid;
+    color: var(--accent-hover);
   }
 
   hr {
@@ -61,17 +74,27 @@
     color: inherit;
   }
 
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible,
-  button:focus-visible {
-    outline: 2px solid var(--accent);
+  /* Soft accent-tinted focus ring. Accessible (visible on paper) but not
+     jarring. Elements that need extra emphasis override with a stronger
+     outline in :focus-visible. */
+  :focus-visible {
+    outline: 1px solid var(--accent);
     outline-offset: 2px;
+    box-shadow: 0 0 0 3px var(--accent-glow);
+    border-radius: 2px;
   }
 
   ::selection {
     background: var(--accent-soft);
     color: var(--ink);
+  }
+
+  /* Reduced-motion users get the visual state changes without the animation. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
   }
 }
 
@@ -92,40 +115,141 @@
     text-transform: uppercase;
     letter-spacing: 0.09em;
     font-size: 0.78rem;
+    /* Old-style figures inside small caps look wrong; keep them tabular. */
+    font-feature-settings: 'liga' 1, 'tnum' 1;
   }
 
+  /* ---- form inputs ---- */
+
   .field-input {
-    @apply w-full border border-rule/70 border-b-rule py-2 px-3 outline-none;
-    background: var(--field-bg);
-    border-bottom-width: 1px;
-    transition: border-color 120ms ease, box-shadow 120ms ease;
+    @apply w-full py-2 px-3 outline-none;
+    background: var(--field-tint);
+    border: 1px solid var(--rule);
+    border-bottom-color: var(--rule-strong);
+    transition:
+      border-color var(--dur-med) var(--ease),
+      background-color var(--dur-med) var(--ease),
+      box-shadow var(--dur-med) var(--ease);
+  }
+
+  .field-input:hover:not(:disabled):not(:focus) {
+    border-color: var(--rule-strong);
   }
 
   .field-input:focus {
+    background: var(--field-bg);
     border-color: var(--accent);
-    box-shadow: 0 1px 0 0 var(--accent);
+    border-bottom-width: 2px;
+    /* Nudge content up 1px so the total height doesn't shift when the
+       bottom border thickens. */
+    padding-bottom: calc(0.5rem - 1px);
+    box-shadow: 0 0 0 3px var(--accent-glow);
     outline: none;
   }
 
   .field-input:disabled {
-    opacity: 0.6;
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
+  .field-input.is-error {
+    border-color: var(--error);
+  }
+
+  /* Custom radio + checkbox. Paper-toned base, accent fill when checked,
+     transitions everything. Keeps the native focus ring for a11y. */
+  input[type='radio'],
+  input[type='checkbox'] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.05em;
+    height: 1.05em;
+    background: var(--field-bg);
+    border: 1px solid var(--rule-strong);
+    display: inline-block;
+    vertical-align: middle;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition:
+      background-color var(--dur-med) var(--ease),
+      border-color var(--dur-med) var(--ease),
+      box-shadow var(--dur-med) var(--ease);
+  }
+
+  input[type='radio'] { border-radius: 50%; }
+  input[type='checkbox'] { border-radius: 2px; }
+
+  input[type='radio']:hover:not(:disabled),
+  input[type='checkbox']:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+
+  input[type='radio']:checked,
+  input[type='checkbox']:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  input[type='radio']:checked::after {
+    content: '';
+    position: absolute;
+    inset: 22%;
+    background: var(--paper);
+    border-radius: 50%;
+    transition: transform var(--dur-fast) var(--ease);
+  }
+
+  input[type='checkbox']:checked::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--paper);
+    mask: url("data:image/svg+xml;utf8,<svg viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'><path d='M2 6.5 L5 9 L10 3' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat center / 72% 72%;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'><path d='M2 6.5 L5 9 L10 3' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat center / 72% 72%;
+  }
+
+  input[type='radio']:disabled,
+  input[type='checkbox']:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ---- buttons ---- */
+
   .btn {
-    @apply inline-flex items-center gap-2 px-4 py-2 border transition-colors;
+    @apply inline-flex items-center gap-2 px-4 py-2 border;
     font-family: var(--font-sans);
     letter-spacing: 0.04em;
     font-size: 0.92rem;
+    transition:
+      background-color var(--dur-med) var(--ease),
+      border-color var(--dur-med) var(--ease),
+      color var(--dur-med) var(--ease),
+      transform var(--dur-fast) var(--ease),
+      box-shadow var(--dur-fast) var(--ease);
+    will-change: transform;
+  }
+
+  .btn:not(:disabled):active {
+    /* Tactile press: nudge down 1px and dampen the shadow. */
+    transform: translateY(1px);
   }
 
   .btn-primary {
     background: var(--accent);
     border-color: var(--accent);
     color: var(--paper);
+    box-shadow: 0 1px 0 0 rgba(15, 31, 23, 0.08);
   }
 
   .btn-primary:hover:not(:disabled) {
     background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+
+  .btn-primary:not(:disabled):active {
+    box-shadow: none;
   }
 
   .btn-primary:disabled {
@@ -139,7 +263,24 @@
     color: var(--ink);
   }
 
-  .btn-ghost:hover {
+  .btn-ghost:hover:not(:disabled) {
     border-color: var(--ink);
+    background: rgba(15, 31, 23, 0.02);
+  }
+}
+
+@layer utilities {
+  /* End-of-section mark, right-aligned. Renders as a small accent square in
+     the outer margin at wider sizes. */
+  .end-mark {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--s-4);
+    margin-bottom: var(--s-3);
+    color: var(--accent);
+    opacity: 0.7;
+    font-size: 0.75em;
+    line-height: 1;
+    letter-spacing: 0;
   }
 }

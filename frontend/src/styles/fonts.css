@@ -4,32 +4,43 @@
  *
  * Family names are kept as "Computer Modern Serif" / "Sans" / "Typewriter"
  * to match the source CSS; token variables in tokens.css map to these.
+ *
+ * .woff2 is preferred (~30% smaller); .woff kept as fallback for very old
+ * browsers.
  */
 
 @font-face {
   font-family: 'Computer Modern Serif';
-  src: url('/fonts/cm/cmunrm.woff') format('woff');
+  src:
+    url('/fonts/cm/cmunrm.woff2') format('woff2'),
+    url('/fonts/cm/cmunrm.woff') format('woff');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Computer Modern Serif';
-  src: url('/fonts/cm/cmunbx.woff') format('woff');
+  src:
+    url('/fonts/cm/cmunbx.woff2') format('woff2'),
+    url('/fonts/cm/cmunbx.woff') format('woff');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Computer Modern Serif';
-  src: url('/fonts/cm/cmunti.woff') format('woff');
+  src:
+    url('/fonts/cm/cmunti.woff2') format('woff2'),
+    url('/fonts/cm/cmunti.woff') format('woff');
   font-weight: 400;
   font-style: italic;
   font-display: swap;
 }
 @font-face {
   font-family: 'Computer Modern Serif';
-  src: url('/fonts/cm/cmunbi.woff') format('woff');
+  src:
+    url('/fonts/cm/cmunbi.woff2') format('woff2'),
+    url('/fonts/cm/cmunbi.woff') format('woff');
   font-weight: 700;
   font-style: italic;
   font-display: swap;
@@ -37,21 +48,27 @@
 
 @font-face {
   font-family: 'Computer Modern Sans';
-  src: url('/fonts/cm/cmunss.woff') format('woff');
+  src:
+    url('/fonts/cm/cmunss.woff2') format('woff2'),
+    url('/fonts/cm/cmunss.woff') format('woff');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Computer Modern Sans';
-  src: url('/fonts/cm/cmunsx.woff') format('woff');
+  src:
+    url('/fonts/cm/cmunsx.woff2') format('woff2'),
+    url('/fonts/cm/cmunsx.woff') format('woff');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Computer Modern Sans';
-  src: url('/fonts/cm/cmunsi.woff') format('woff');
+  src:
+    url('/fonts/cm/cmunsi.woff2') format('woff2'),
+    url('/fonts/cm/cmunsi.woff') format('woff');
   font-weight: 400;
   font-style: italic;
   font-display: swap;
@@ -59,14 +76,18 @@
 
 @font-face {
   font-family: 'Computer Modern Typewriter';
-  src: url('/fonts/cm/cmuntt.woff') format('woff');
+  src:
+    url('/fonts/cm/cmuntt.woff2') format('woff2'),
+    url('/fonts/cm/cmuntt.woff') format('woff');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Computer Modern Typewriter';
-  src: url('/fonts/cm/cmuntb.woff') format('woff');
+  src:
+    url('/fonts/cm/cmuntb.woff2') format('woff2'),
+    url('/fonts/cm/cmuntb.woff') format('woff');
   font-weight: 700;
   font-style: normal;
   font-display: swap;

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createRoute, Link } from "@tanstack/react-router";
 import { rootRoute } from "./root";
 import { fetchMe } from "../api/client";
+import { EndMark } from "../components/Layout";
 
 function IndexPage() {
 	const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
@@ -245,6 +246,7 @@ function About() {
 				There aren&rsquo;t lectures to watch. It&rsquo;s a seminar: a group of
 				people doing math together for ten weeks.
 			</p>
+			<EndMark />
 		</section>
 	);
 }
@@ -311,6 +313,7 @@ function Week() {
 				The students who give the problems plenty of time are the ones who get
 				the most out of the experience.
 			</p>
+			<EndMark />
 		</section>
 	);
 }
@@ -338,6 +341,7 @@ function WhoShouldApply() {
 				&mdash; but we want to bring this sort of experience to more people, and
 				ℝℙ² is our way to keep Ross going during the academic year.
 			</Note>
+			<EndMark />
 		</section>
 	);
 }
@@ -402,6 +406,7 @@ function Admissions() {
 					</li>
 				))}
 			</ol>
+			<EndMark />
 		</section>
 	);
 }
@@ -421,6 +426,7 @@ function Tuition() {
 				in. There is a simple aid request built into the application. Parents
 				and guardians are welcome to email us with questions before applying.
 			</p>
+			<EndMark />
 		</section>
 	);
 }

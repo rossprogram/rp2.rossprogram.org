@@ -4,11 +4,15 @@ import { and, eq, isNull, lt } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { guardianLink, magicLinkToken, session, user, userRole } from '../db/schema.js';
 import { sendEmail } from '../integrations/email/ses.js';
-import { renderGuardianInviteEmail } from '../integrations/email/templates.js';
+import {
+  renderApplicantInviteEmail,
+  renderGuardianInviteEmail,
+} from '../integrations/email/templates.js';
 import { env } from '../env.js';
 import { sessionTtlSeconds } from './session.js';
 
 export type MagicLinkPurpose = 'applicant_signin' | 'guardian_invite' | 'guardian_signin';
+export type SignInRole = 'applicant' | 'guardian';
 
 const TOKEN_TTL_SECONDS = 15 * 60;
 
@@ -20,18 +24,61 @@ function newToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
-export async function requestMagicLink(email: string, requestIp?: string | undefined): Promise<void> {
+/*
+ * Canonical role of an existing user, based on explicit user_role rows.
+ * Returns null for a "ghost" record (email exists but the user has never
+ * completed sign-in and has no application data). Guardian wins if both are
+ * present — a rare case, but the parent role is more restrictive.
+ */
+export function canonicalRoleForEmail(email: string): SignInRole | null {
+  const normalized = email.trim().toLowerCase();
+  const u = db.select({ id: user.id }).from(user).where(eq(user.email, normalized)).get();
+  if (!u) return null;
+  return canonicalRole(u.id);
+}
+
+function canonicalRole(userId: string): SignInRole | null {
+  const roles = db
+    .select({ role: userRole.role })
+    .from(userRole)
+    .where(eq(userRole.userId, userId))
+    .all()
+    .map((r) => r.role);
+  if (roles.includes('guardian')) return 'guardian';
+  if (roles.includes('applicant')) return 'applicant';
+  return null;
+}
+
+export type RequestLinkFailure = { reason: 'role_mismatch'; registeredAs: SignInRole };
+export type RequestLinkResult = { ok: true } | ({ ok: false } & RequestLinkFailure);
+
+export async function requestMagicLink(
+  email: string,
+  role: SignInRole,
+  requestIp?: string | undefined,
+): Promise<RequestLinkResult> {
   const normalized = email.trim().toLowerCase();
   const userId = upsertUser(normalized);
-  const token = issueToken(userId, 'applicant_signin', requestIp);
+  const canonical = canonicalRole(userId);
+  if (canonical !== null && canonical !== role) {
+    return { ok: false, reason: 'role_mismatch', registeredAs: canonical };
+  }
+  const purpose: MagicLinkPurpose =
+    role === 'guardian' ? 'guardian_signin' : 'applicant_signin';
+  const token = issueToken(userId, purpose, requestIp);
   const link = `${env.APP_URL}/api/auth/verify?token=${encodeURIComponent(token)}`;
+  const forParent = role === 'guardian';
   await sendEmail({
     to: normalized,
-    subject: 'Your ℝℙ² sign-in link',
+    subject: forParent
+      ? 'Your ℝℙ² parent-portal sign-in link'
+      : 'Your ℝℙ² sign-in link',
     text: [
       'Hello,',
       '',
-      'Follow this link to sign in to your ℝℙ² application:',
+      forParent
+        ? 'Follow this link to sign in to the ℝℙ² parent portal:'
+        : 'Follow this link to sign in to your ℝℙ² application:',
       link,
       '',
       'This link expires in 15 minutes and can only be used once.',
@@ -40,12 +87,17 @@ export async function requestMagicLink(email: string, requestIp?: string | undef
     ].join('\n'),
     html: `
       <p>Hello,</p>
-      <p>Follow this link to sign in to your ℝℙ² application:</p>
+      <p>${
+        forParent
+          ? 'Follow this link to sign in to the ℝℙ² parent portal:'
+          : 'Follow this link to sign in to your ℝℙ² application:'
+      }</p>
       <p><a href="${link}">${link}</a></p>
       <p>This link expires in 15 minutes and can only be used once.</p>
       <p>If you didn't request this, you can ignore this email.</p>
     `,
   });
+  return { ok: true };
 }
 
 /*
@@ -55,6 +107,30 @@ export async function requestMagicLink(email: string, requestIp?: string | undef
  * to skip DOB collection and consumeToken to grant the `guardian` role +
  * flip `guardian_link.acceptedAt`.
  */
+/*
+ * Sends an `applicant_signin` magic link to a student the parent invited from
+ * their portal. Parallel of requestGuardianInvite: creates the user record if
+ * new, but the email is the parent-invites-student template rather than the
+ * plain sign-in one, so the recipient knows why they're being invited.
+ */
+export async function requestApplicantInvite(
+  applicantEmail: string,
+  guardianName: string,
+): Promise<{ applicantUserId: string }> {
+  const normalized = applicantEmail.trim().toLowerCase();
+  const applicantUserId = upsertUser(normalized);
+  const token = issueToken(applicantUserId, 'applicant_signin');
+  const link = `${env.APP_URL}/api/auth/verify?token=${encodeURIComponent(token)}`;
+  const rendered = renderApplicantInviteEmail({ guardianName, magicLinkUrl: link });
+  await sendEmail({
+    to: normalized,
+    subject: rendered.subject,
+    text: rendered.text,
+    html: rendered.html,
+  });
+  return { applicantUserId };
+}
+
 export async function requestGuardianInvite(
   guardianEmail: string,
   applicantName: string,
@@ -230,14 +306,19 @@ export function consumeToken(
     .run();
   if (updated.changes === 0) return { ok: false, reason: 'used' };
 
-  // Guardian-invite acceptance: grant role, mark any guardian_link rows this
-  // person is on as accepted. Idempotent — safe if they re-enter via a fresh
-  // sign-in link later.
+  // Grant the appropriate explicit role. Applicant is normally implicit at
+  // read time, but persisting it here lets requestMagicLink detect
+  // cross-role conflicts on future sign-in attempts.
+  const grantedRole: 'applicant' | 'guardian' =
+    row.purpose === 'applicant_signin' ? 'applicant' : 'guardian';
+  db.insert(userRole)
+    .values({ userId: row.userId, role: grantedRole })
+    .onConflictDoNothing()
+    .run();
+
+  // Guardian-invite acceptance also flips any pending guardian_link rows.
+  // Idempotent — safe on re-entry via a fresh sign-in link later.
   if (row.purpose === 'guardian_invite') {
-    db.insert(userRole)
-      .values({ userId: row.userId, role: 'guardian' })
-      .onConflictDoNothing()
-      .run();
     db.update(guardianLink)
       .set({ acceptedAt: now })
       .where(

@@ -1,7 +1,11 @@
 import { z } from 'zod';
 
+export const SignInRole = z.enum(['applicant', 'guardian']);
+export type SignInRole = z.infer<typeof SignInRole>;
+
 export const RequestLinkBody = z.object({
   email: z.string().email().max(320),
+  role: SignInRole.default('applicant'),
 });
 export type RequestLinkBody = z.infer<typeof RequestLinkBody>;
 

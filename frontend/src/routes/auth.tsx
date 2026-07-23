@@ -3,17 +3,25 @@ import { createRoute, Link, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { rootRoute } from './root';
 import { Prose } from '../components/Layout';
-import { api, ApiError } from '../api/client';
+import { api, ApiError, requestSignInLink, type SignInRole } from '../api/client';
+
+const RequestSearch = z.object({
+  role: z.enum(['applicant', 'guardian']).optional(),
+});
 
 function RequestLinkPage() {
   const navigate = useNavigate();
+  const { role: initialRole } = authRequestRoute.useSearch();
+  const [role, setRole] = useState<SignInRole>(initialRole ?? 'applicant');
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [mismatch, setMismatch] = useState<SignInRole | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setMismatch(null);
     const parsed = z.string().email().safeParse(email);
     if (!parsed.success) {
       setError('Please enter a valid email address.');
@@ -21,10 +29,17 @@ function RequestLinkPage() {
     }
     setSubmitting(true);
     try {
-      await api.post('/api/auth/request-link', { email: parsed.data });
+      await requestSignInLink({ email: parsed.data, role });
       navigate({ to: '/auth/check-email', search: { email: parsed.data } });
     } catch (err) {
-      if (err instanceof ApiError && err.status === 429) {
+      if (err instanceof ApiError && err.status === 409) {
+        const body = err.body as { error?: string; registeredAs?: SignInRole };
+        if (body?.error === 'role_mismatch' && body.registeredAs) {
+          setMismatch(body.registeredAs);
+        } else {
+          setError('Something went wrong. Please try again.');
+        }
+      } else if (err instanceof ApiError && err.status === 429) {
         setError('Too many requests. Please wait a minute and try again.');
       } else {
         setError('Something went wrong. Please try again.');
@@ -42,6 +57,40 @@ function RequestLinkPage() {
       </p>
 
       <form onSubmit={onSubmit} className="max-w-md">
+        <fieldset className="mb-6">
+          <legend className="smallcaps text-muted mb-2">
+            I&rsquo;m signing in as
+          </legend>
+          <label className="flex items-baseline gap-3 py-1 cursor-pointer">
+            <input
+              type="radio"
+              name="role"
+              value="applicant"
+              checked={role === 'applicant'}
+              onChange={() => setRole('applicant')}
+              disabled={submitting}
+            />
+            <span>
+              <b>A student</b>{' '}
+              <span className="text-muted italic">applying to ℝℙ²</span>
+            </span>
+          </label>
+          <label className="flex items-baseline gap-3 py-1 cursor-pointer">
+            <input
+              type="radio"
+              name="role"
+              value="guardian"
+              checked={role === 'guardian'}
+              onChange={() => setRole('guardian')}
+              disabled={submitting}
+            />
+            <span>
+              <b>A parent or guardian</b>{' '}
+              <span className="text-muted italic">of a student</span>
+            </span>
+          </label>
+        </fieldset>
+
         <label className="block">
           <span className="smallcaps text-muted">Email address</span>
           <input
@@ -55,6 +104,47 @@ function RequestLinkPage() {
             disabled={submitting}
           />
         </label>
+
+        {mismatch && (
+          <div className="mt-6 pl-5 py-4 pr-5 bg-accent-soft border-l-2 border-accent">
+            <p>
+              This email is already registered as{' '}
+              <b>{mismatch === 'guardian' ? 'a parent' : 'a student'}</b>.{' '}
+              {role === 'guardian' ? (
+                <>
+                  To register a parent account, please use a different email
+                  address than the one your student uses for their application.
+                </>
+              ) : (
+                <>
+                  To start a student application, please use a different email
+                  address. If you meant to sign in to the parent portal,{' '}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2"
+                    onClick={() => {
+                      setRole('guardian');
+                      setMismatch(null);
+                    }}
+                  >
+                    switch to parent sign-in
+                  </button>
+                  .
+                </>
+              )}
+            </p>
+            <p className="mt-2 text-muted text-sm">
+              If this looks like a mistake, write to{' '}
+              <a
+                href="mailto:ross@rossprogram.org"
+                className="font-mono text-ink no-underline hover:underline"
+              >
+                ross@rossprogram.org
+              </a>
+              .
+            </p>
+          </div>
+        )}
 
         {error && <p className="mt-4 text-accent">{error}</p>}
 
@@ -74,6 +164,7 @@ function RequestLinkPage() {
 export const authRequestRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/request',
+  validateSearch: RequestSearch,
   component: RequestLinkPage,
 });
 
@@ -219,7 +310,7 @@ function CompletePage() {
         '/api/auth/complete',
         body,
       );
-      const dest = res.purpose === 'applicant_signin' ? '/apply' : '/guardian';
+      const dest = res.purpose === 'applicant_signin' ? '/apply' : '/parent';
       window.location.assign(dest);
     } catch (err) {
       if (err instanceof ApiError) {

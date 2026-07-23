@@ -33,12 +33,12 @@ const AID_OPTIONS: Array<{ value: 'none' | 'partial' | 'full'; label: string }> 
 ];
 
 function GuardianApplicantPage() {
-  const { appId } = guardianApplicantRoute.useParams();
+  const { appId } = parentApplicantRoute.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
   const q = useQuery({
-    queryKey: ['guardian', 'applicant', appId],
+    queryKey: ['parent', 'applicant', appId],
     queryFn: () => fetchGuardianApplicantView(appId),
   });
 
@@ -60,7 +60,7 @@ function GuardianApplicantPage() {
           The link may have expired, or the student may have changed their
           parent contact.
         </p>
-        <Link to="/guardian" className="btn btn-ghost no-underline">
+        <Link to="/parent" className="btn btn-ghost no-underline">
           Back to parent portal
         </Link>
       </Prose>
@@ -86,7 +86,7 @@ function GuardianApplicantPage() {
         appId={appId}
         initial={applicant.guardianSignature}
         disabled={locked}
-        onSaved={() => qc.invalidateQueries({ queryKey: ['guardian', 'applicant', appId] })}
+        onSaved={() => qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] })}
       />
 
       <AidBlock
@@ -94,7 +94,7 @@ function GuardianApplicantPage() {
         initialLevel={applicant.aidLevel}
         files={files}
         disabled={locked}
-        onChanged={() => qc.invalidateQueries({ queryKey: ['guardian', 'applicant', appId] })}
+        onChanged={() => qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] })}
       />
 
       <hr />
@@ -104,9 +104,9 @@ function GuardianApplicantPage() {
         canComplete={applicant.taskComplete && !locked}
         alreadyDone={applicant.guardianSubmittedAt !== null}
         onDone={() => {
-          qc.invalidateQueries({ queryKey: ['guardian', 'me'] });
-          qc.invalidateQueries({ queryKey: ['guardian', 'applicant', appId] });
-          navigate({ to: '/guardian' });
+          qc.invalidateQueries({ queryKey: ['parent', 'me'] });
+          qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] });
+          navigate({ to: '/parent' });
         }}
       />
     </Prose>
@@ -311,7 +311,7 @@ function GuardianFileUpload({
     },
     onSuccess: () => {
       setProgress(null);
-      qc.invalidateQueries({ queryKey: ['guardian', 'applicant', appId] });
+      qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] });
       onChanged();
     },
     onError: (err) => {
@@ -323,7 +323,7 @@ function GuardianFileUpload({
   const deleteMut = useMutation({
     mutationFn: (id: string) => guardianDeleteFile(appId, id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['guardian', 'applicant', appId] });
+      qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] });
       onChanged();
     },
   });
@@ -476,9 +476,9 @@ function formatBytes(n: number): string {
 
 const Params = z.object({ appId: z.string().min(1) });
 
-export const guardianApplicantRoute = createRoute({
+export const parentApplicantRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/guardian/applicant/$appId',
+  path: '/parent/applicant/$appId',
   parseParams: (raw) => Params.parse(raw),
   beforeLoad: ensureGuardian,
   component: GuardianApplicantPage,

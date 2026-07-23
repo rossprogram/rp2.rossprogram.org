@@ -14,8 +14,8 @@ import {
 import { applyRoute } from './routes/apply';
 import { applySectionRoute } from './routes/apply-section';
 import { statusRoute } from './routes/status';
-import { guardianRoute } from './routes/guardian';
-import { guardianApplicantRoute } from './routes/guardian-applicant';
+import { parentRoute } from './routes/parent';
+import { parentApplicantRoute } from './routes/parent-applicant';
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -31,6 +31,6 @@ export const routeTree = rootRoute.addChildren([
   applyRoute,
   applySectionRoute,
   statusRoute,
-  guardianRoute,
-  guardianApplicantRoute,
+  parentRoute,
+  parentApplicantRoute,
 ]);

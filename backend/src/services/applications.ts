@@ -89,6 +89,35 @@ export function loadApplicationView(userId: string): {
       responses[row.questionKey] = row.value;
     }
   }
+
+  // Parent-initiated flows: the guardian_link exists before the applicant
+  // ever touches §2. Pre-fill the guardian_email and guardian_relationship
+  // from the link so the applicant sees who's already tied to them.
+  const link = db
+    .select({
+      guardianUserId: guardianLink.guardianUserId,
+      relationship: guardianLink.relationship,
+    })
+    .from(guardianLink)
+    .where(eq(guardianLink.applicantUserId, userId))
+    .get();
+  if (link) {
+    if (typeof responses['guardian_email'] !== 'string' || !responses['guardian_email']) {
+      const g = db
+        .select({ email: user.email })
+        .from(user)
+        .where(eq(user.id, link.guardianUserId))
+        .get();
+      if (g) responses['guardian_email'] = g.email;
+    }
+    if (
+      typeof responses['guardian_relationship'] !== 'string' ||
+      !responses['guardian_relationship']
+    ) {
+      responses['guardian_relationship'] = link.relationship;
+    }
+  }
+
   return { ...app, responses };
 }
 

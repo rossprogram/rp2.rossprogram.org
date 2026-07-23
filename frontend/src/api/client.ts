@@ -113,26 +113,26 @@ export type GuardianApplicantSummary = {
 export function fetchMyLinkedApplicants(): Promise<{
   applicants: GuardianApplicantSummary[];
 }> {
-  return api.get('/api/guardian/me');
+  return api.get('/api/parent/me');
 }
 
 export function fetchGuardianApplicantView(
   appId: string,
 ): Promise<{ applicant: GuardianApplicantSummary; files: ApplicationFile[] }> {
-  return api.get(`/api/guardian/applicant/${encodeURIComponent(appId)}`);
+  return api.get(`/api/parent/applicant/${encodeURIComponent(appId)}`);
 }
 
 export function patchGuardianTasks(
   appId: string,
   input: { guardianSignature?: string; aidLevel?: 'none' | 'partial' | 'full' },
 ): Promise<{ ok: true }> {
-  return api.patch(`/api/guardian/applicant/${encodeURIComponent(appId)}`, input);
+  return api.patch(`/api/parent/applicant/${encodeURIComponent(appId)}`, input);
 }
 
 export function completeGuardianPart(
   appId: string,
 ): Promise<{ ok: true; status: ApplicationStatus }> {
-  return api.post(`/api/guardian/applicant/${encodeURIComponent(appId)}/complete`);
+  return api.post(`/api/parent/applicant/${encodeURIComponent(appId)}/complete`);
 }
 
 export function guardianSignUpload(
@@ -142,7 +142,7 @@ export function guardianSignUpload(
   ticket: { uploadUrl: string; storageKey: string; expiresAt: number };
 }> {
   return api.post(
-    `/api/guardian/applicant/${encodeURIComponent(appId)}/uploads/sign`,
+    `/api/parent/applicant/${encodeURIComponent(appId)}/uploads/sign`,
     input,
   );
 }
@@ -157,15 +157,31 @@ export function guardianRegisterFile(
   },
 ): Promise<{ file: ApplicationFile }> {
   return api.post(
-    `/api/guardian/applicant/${encodeURIComponent(appId)}/files`,
+    `/api/parent/applicant/${encodeURIComponent(appId)}/files`,
     input,
   );
 }
 
 export function guardianDeleteFile(appId: string, fileId: string): Promise<void> {
   return api.delete(
-    `/api/guardian/applicant/${encodeURIComponent(appId)}/files/${encodeURIComponent(fileId)}`,
+    `/api/parent/applicant/${encodeURIComponent(appId)}/files/${encodeURIComponent(fileId)}`,
   );
+}
+
+export type SignInRole = 'applicant' | 'guardian';
+
+export function requestSignInLink(input: {
+  email: string;
+  role: SignInRole;
+}): Promise<void> {
+  return api.post('/api/auth/request-link', input);
+}
+
+export function inviteApplicantFromParent(input: {
+  applicantEmail: string;
+  relationship: 'parent' | 'guardian' | 'other';
+}): Promise<{ ok: true; alreadyLinked: boolean }> {
+  return api.post('/api/parent/invite-applicant', input);
 }
 
 export type ApplicationFile = {

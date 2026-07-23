@@ -51,7 +51,6 @@ export async function attachSession(req: FastifyRequest): Promise<void> {
     .where(eq(userRole.userId, row.userId))
     .all()
     .map((r) => r.role as Role);
-  if (!roles.includes('applicant')) roles.push('applicant');
 
   req.currentUser = {
     id: row.userId,

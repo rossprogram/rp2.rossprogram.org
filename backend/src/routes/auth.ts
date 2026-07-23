@@ -32,7 +32,17 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: 'invalid_email' });
       }
       try {
-        await requestMagicLink(parsed.data.email, req.ip);
+        const result = await requestMagicLink(
+          parsed.data.email,
+          parsed.data.role,
+          req.ip,
+        );
+        if (!result.ok) {
+          return reply.code(409).send({
+            error: 'role_mismatch',
+            registeredAs: result.registeredAs,
+          });
+        }
       } catch (err) {
         req.log.error({ err }, 'failed to send magic link');
       }

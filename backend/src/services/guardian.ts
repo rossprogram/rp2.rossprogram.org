@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import {
@@ -9,6 +10,11 @@ import {
 } from '../db/schema.js';
 import { sendEmail } from '../integrations/email/ses.js';
 import { renderGuardianCompletedEmail } from '../integrations/email/templates.js';
+import {
+  canonicalRoleForEmail,
+  requestApplicantInvite,
+} from '../auth/magic-link.js';
+import { getOrCreateApplication } from './applications.js';
 import type { ApplicationStatus } from '@rp2/shared';
 
 function nowSeconds(): number {
@@ -249,6 +255,106 @@ export async function completeGuardianPart(
   }
 
   return { ok: true, status: nextStatus };
+}
+
+export type InviteApplicantInput = {
+  guardianUserId: string;
+  applicantEmail: string;
+  relationship: 'parent' | 'guardian' | 'other';
+};
+
+export type InviteApplicantError =
+  | 'self_invite'
+  | 'email_is_guardian'
+  | 'applicant_linked_elsewhere';
+
+export async function inviteApplicant(
+  input: InviteApplicantInput,
+): Promise<
+  | { ok: true; applicantUserId: string; alreadyLinked: boolean }
+  | { ok: false; reason: InviteApplicantError }
+> {
+  const normalized = input.applicantEmail.trim().toLowerCase();
+
+  const guardian = db
+    .select({ email: user.email })
+    .from(user)
+    .where(eq(user.id, input.guardianUserId))
+    .get();
+  if (guardian && guardian.email === normalized) {
+    return { ok: false, reason: 'self_invite' };
+  }
+
+  // If this email is already a canonical guardian, we can't turn them into
+  // an applicant. They'd need to use a different email address to apply.
+  if (canonicalRoleForEmail(normalized) === 'guardian') {
+    return { ok: false, reason: 'email_is_guardian' };
+  }
+
+  // Find or create the applicant user record + issue a magic link.
+  const guardianName = readGuardianName(input.guardianUserId);
+  const { applicantUserId } = await requestApplicantInvite(normalized, guardianName);
+
+  // Check for an existing link on this applicant.
+  const existingLink = db
+    .select()
+    .from(guardianLink)
+    .where(eq(guardianLink.applicantUserId, applicantUserId))
+    .get();
+
+  if (existingLink && existingLink.guardianUserId !== input.guardianUserId) {
+    return { ok: false, reason: 'applicant_linked_elsewhere' };
+  }
+
+  const now = nowSeconds();
+  if (!existingLink) {
+    db.insert(guardianLink)
+      .values({
+        id: nanoid(),
+        applicantUserId,
+        guardianUserId: input.guardianUserId,
+        relationship: input.relationship,
+        invitedAt: now,
+        acceptedAt: now, // guardian side is already active
+        createdAt: now,
+      })
+      .run();
+    // Materialize the applicant's row so the parent sees them on their
+    // portal before the student ever signs in. getOrCreateApplication
+    // also creates the applicant_profile row.
+    getOrCreateApplication(applicantUserId);
+    return { ok: true, applicantUserId, alreadyLinked: false };
+  }
+
+  // Idempotent re-invite: refresh invitedAt so the applicant sees the new mail.
+  db.update(guardianLink)
+    .set({ invitedAt: now, relationship: input.relationship })
+    .where(eq(guardianLink.id, existingLink.id))
+    .run();
+  return { ok: true, applicantUserId, alreadyLinked: true };
+}
+
+function readGuardianName(guardianUserId: string): string {
+  // Best-effort: use whatever name the guardian may have entered from their
+  // side. Fall back to the empty string; the template handles that.
+  const linked = db
+    .select({ appId: application.id })
+    .from(guardianLink)
+    .innerJoin(application, eq(application.applicantUserId, guardianLink.applicantUserId))
+    .where(eq(guardianLink.guardianUserId, guardianUserId))
+    .get();
+  if (!linked) return '';
+  const row = db
+    .select({ value: applicationResponse.value })
+    .from(applicationResponse)
+    .where(
+      and(
+        eq(applicationResponse.applicationId, linked.appId),
+        eq(applicationResponse.questionKey, 'guardian_name'),
+      ),
+    )
+    .get();
+  return readString(row?.value) ?? '';
 }
 
 export function getGuardianStatusForApplicant(

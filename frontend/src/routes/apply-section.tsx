@@ -19,6 +19,9 @@ async function ensureAuthAndSection({
 }) {
   const me = await fetchMe();
   if (!me) throw redirect({ to: '/auth/request' });
+  if (me.roles.includes('guardian') && !me.roles.includes('applicant')) {
+    throw redirect({ to: '/parent' });
+  }
   const section = sectionBySlug(params.section);
   if (!section) throw redirect({ to: '/apply' });
   const app = await context.queryClient.ensureQueryData({
@@ -48,6 +51,11 @@ function SectionPage() {
     q.data?.status !== undefined &&
     q.data.status !== 'draft' &&
     q.data.status !== 'awaiting_guardian';
+  // Once the parent has accepted, the applicant loses the ability to change
+  // their guardian_email. Same lock applies whether the invite came from the
+  // student or from the parent (parent-initiated links land with acceptedAt
+  // already set).
+  const guardianEmailLocked = q.data?.guardian?.acceptedAt != null;
   const next = nextSectionSlug(section.key);
 
   return (
@@ -74,15 +82,26 @@ function SectionPage() {
         </p>
 
         <div className="mt-8 prose-mm">
-          {questions.map((question) => (
-            <Field
-              key={question.key}
-              question={question}
-              value={responses[question.key]}
-              disabled={!!locked || save.isPending}
-              onSave={(value) => save.mutate({ [question.key]: value })}
-            />
-          ))}
+          {questions.map((question) => {
+            const perFieldLocked =
+              question.key === 'guardian_email' && guardianEmailLocked;
+            return (
+              <div key={question.key}>
+                <Field
+                  question={question}
+                  value={responses[question.key]}
+                  disabled={!!locked || save.isPending || perFieldLocked}
+                  onSave={(value) => save.mutate({ [question.key]: value })}
+                />
+                {perFieldLocked && (
+                  <p className="text-muted italic text-sm -mt-6 mb-8">
+                    Locked — your parent or guardian has confirmed this
+                    address. Write to us if this looks wrong.
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <hr />

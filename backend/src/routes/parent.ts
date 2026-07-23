@@ -4,6 +4,7 @@ import { requireAuth } from '../auth/session.js';
 import {
   completeGuardianPart,
   getGuardianApplicantView,
+  inviteApplicant,
   listLinkedApplicants,
   patchGuardianTasks,
 } from '../services/guardian.js';
@@ -37,6 +38,11 @@ const SignBody = z.object({
   size: z.number().int().positive(),
 });
 
+const InviteApplicantBody = z.object({
+  applicantEmail: z.string().email().max(320),
+  relationship: z.enum(['parent', 'guardian', 'other']).default('parent'),
+});
+
 function requireLinkedGuardian(
   guardianUserId: string,
   applicationId: string,
@@ -56,17 +62,38 @@ function requireLinkedGuardian(
   return { ok: true, applicantUserId: row.applicantUserId };
 }
 
-export async function registerGuardianRoutes(app: FastifyInstance): Promise<void> {
+export async function registerParentRoutes(app: FastifyInstance): Promise<void> {
   app.get(
-    '/api/guardian/me',
+    '/api/parent/me',
     { preHandler: requireAuth('guardian') },
     async (req) => {
       return { applicants: listLinkedApplicants(req.currentUser!.id) };
     },
   );
 
+  app.post(
+    '/api/parent/invite-applicant',
+    {
+      preHandler: requireAuth('guardian'),
+      config: { rateLimit: { max: 10, timeWindow: '1 hour' } },
+    },
+    async (req, reply) => {
+      const parsed = InviteApplicantBody.safeParse(req.body);
+      if (!parsed.success) return reply.code(400).send({ error: 'invalid_body' });
+      const result = await inviteApplicant({
+        guardianUserId: req.currentUser!.id,
+        applicantEmail: parsed.data.applicantEmail,
+        relationship: parsed.data.relationship,
+      });
+      if (!result.ok) {
+        return reply.code(409).send({ error: result.reason });
+      }
+      return { ok: true, alreadyLinked: result.alreadyLinked };
+    },
+  );
+
   app.get(
-    '/api/guardian/applicant/:appId',
+    '/api/parent/applicant/:appId',
     { preHandler: requireAuth('guardian') },
     async (req, reply) => {
       const { appId } = req.params as { appId: string };
@@ -78,7 +105,7 @@ export async function registerGuardianRoutes(app: FastifyInstance): Promise<void
   );
 
   app.patch(
-    '/api/guardian/applicant/:appId',
+    '/api/parent/applicant/:appId',
     { preHandler: requireAuth('guardian') },
     async (req, reply) => {
       const parsed = PatchBody.safeParse(req.body);
@@ -93,7 +120,7 @@ export async function registerGuardianRoutes(app: FastifyInstance): Promise<void
   );
 
   app.post(
-    '/api/guardian/applicant/:appId/complete',
+    '/api/parent/applicant/:appId/complete',
     { preHandler: requireAuth('guardian') },
     async (req, reply) => {
       const { appId } = req.params as { appId: string };
@@ -107,7 +134,7 @@ export async function registerGuardianRoutes(app: FastifyInstance): Promise<void
   );
 
   app.post(
-    '/api/guardian/applicant/:appId/uploads/sign',
+    '/api/parent/applicant/:appId/uploads/sign',
     { preHandler: requireAuth('guardian') },
     async (req, reply) => {
       const parsed = SignBody.safeParse(req.body);
@@ -129,7 +156,7 @@ export async function registerGuardianRoutes(app: FastifyInstance): Promise<void
   );
 
   app.post(
-    '/api/guardian/applicant/:appId/files',
+    '/api/parent/applicant/:appId/files',
     { preHandler: requireAuth('guardian') },
     async (req, reply) => {
       const parsed = RegisterFileBody.safeParse(req.body);
@@ -151,7 +178,7 @@ export async function registerGuardianRoutes(app: FastifyInstance): Promise<void
   );
 
   app.delete(
-    '/api/guardian/applicant/:appId/files/:id',
+    '/api/parent/applicant/:appId/files/:id',
     { preHandler: requireAuth('guardian') },
     async (req, reply) => {
       const { appId, id } = req.params as { appId: string; id: string };
@@ -164,7 +191,7 @@ export async function registerGuardianRoutes(app: FastifyInstance): Promise<void
   );
 
   app.get(
-    '/api/guardian/applicant/:appId/files/:id/download',
+    '/api/parent/applicant/:appId/files/:id/download',
     { preHandler: requireAuth('guardian') },
     async (req, reply) => {
       const { appId, id } = req.params as { appId: string; id: string };

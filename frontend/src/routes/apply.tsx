@@ -21,6 +21,9 @@ async function ensureAuthAndPreload({
 }) {
   const me = await fetchMe();
   if (!me) throw redirect({ to: '/auth/request' });
+  if (me.roles.includes('guardian') && !me.roles.includes('applicant')) {
+    throw redirect({ to: '/parent' });
+  }
   const app = await context.queryClient.ensureQueryData({
     queryKey: ['application'],
     queryFn: fetchApplication,

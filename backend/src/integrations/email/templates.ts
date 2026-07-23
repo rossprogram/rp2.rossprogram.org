@@ -71,6 +71,39 @@ export function renderGuardianCompletedEmail(params: {
   };
 }
 
+export function renderApplicantInviteEmail(params: {
+  guardianName: string;
+  magicLinkUrl: string;
+}): RenderedEmail {
+  const inviter = params.guardianName.trim() || 'A parent or guardian';
+  return {
+    subject: `${inviter} invited you to apply to ℝℙ²`,
+    text: [
+      'Hello,',
+      '',
+      `${inviter} has invited you to apply to ℝℙ², the online program of the Ross Mathematics Foundation.`,
+      '',
+      'Follow this link to start your application:',
+      params.magicLinkUrl,
+      '',
+      'This link expires in 15 minutes. If it expires, ask your parent or guardian to resend it from their portal.',
+      '',
+      'If you were not expecting this email, you can ignore it.',
+      '',
+      '— Ross Mathematics Foundation',
+    ].join('\n'),
+    html: `
+      <p>Hello,</p>
+      <p><b>${escapeHtml(inviter)}</b> has invited you to apply to ℝℙ², the online program of the Ross Mathematics Foundation.</p>
+      <p>Follow this link to start your application:</p>
+      <p><a href="${escapeHtml(params.magicLinkUrl)}">${escapeHtml(params.magicLinkUrl)}</a></p>
+      <p>This link expires in 15 minutes. If it expires, ask your parent or guardian to resend it from their portal.</p>
+      <p>If you were not expecting this email, you can ignore it.</p>
+      <p>— Ross Mathematics Foundation</p>
+    `,
+  };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

@@ -102,7 +102,7 @@ function ProgressDot({ state }: { state: Progress }) {
         (state === 'complete'
           ? 'bg-accent border-accent'
           : state === 'partial'
-            ? 'bg-accent/40 border-accent'
+            ? 'border-accent bg-[linear-gradient(90deg,#14532D_50%,transparent_50%)]'
             : 'bg-transparent border-muted/60')
       }
     />

@@ -12,7 +12,7 @@ scope, timeline, courses, staffing model, and the application questions verbatim
 ## Program shape (short version)
 
 - **Pilot term:** ten weeks, Sep 28 – Dec 11, 2026, one-week Thanksgiving break.
-- **Format:** one 90-min live Zoom session + one 60-min office hour per week per
+- **Format:** one 90-min live Zoom session + one 90-min office hour per week per
   course. Ross-style problem sets outside class.
 - **Courses (candidates):** point-set topology, geometric group theory,
   combinatorial game theory, quadratic forms; plus alternates on the application

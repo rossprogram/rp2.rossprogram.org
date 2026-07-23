@@ -47,8 +47,8 @@ const FAQS: { q: string; a: React.ReactNode }[] = [
     q: 'How much work is it each week?',
     a: (
       <p>
-        Two and a half hours of live meetings (the seminar and the optional
-        office hour), plus your own time on the problem set &mdash; for most
+        Three hours of live meetings (the seminar and the optional office
+        hour), plus your own time on the problem set &mdash; for most
         students, a few additional hours. The sets are designed to be worked on
         across the week, not finished in a sitting.
       </p>

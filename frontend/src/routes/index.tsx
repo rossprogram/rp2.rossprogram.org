@@ -172,7 +172,7 @@ function Week() {
       </>,
     ],
     [
-      '60 min · office hour',
+      '90 min · office hour',
       <>
         <b>Office hour.</b> Optional but encouraged. Come for help with the
         problem set, extension problems if you are ahead, more examples if you
@@ -217,9 +217,9 @@ function Week() {
         ))}
       </div>
       <p className="mt-5">
-        Plan on the two and a half live hours plus several more with the
-        problem set. The problems reward time; students who make room for them
-        each week get the most out of the term.
+        Plan on the three live hours plus several more with the problem set.
+        The problems reward time; students who make room for them each week
+        get the most out of the term.
       </p>
     </section>
   );

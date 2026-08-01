@@ -33,158 +33,53 @@ function Hero({ signedIn }: { signedIn: boolean }) {
 				backgroundSize: "2.2rem 2.2rem",
 			}}
 		>
-			<div className="max-w-5xl mx-auto px-6 py-16 md:py-24 grid gap-12 md:grid-cols-[1.35fr_1fr] items-center">
-				<div>
-					<p className="smallcaps text-accent mb-6">
-						The Ross Mathematics Program · Online · Fall 2026
-					</p>
-					<h1 className="font-serif font-bold text-[clamp(4rem,10vw,6.5rem)] leading-none tracking-tight">
-						ℝℙ²
-					</h1>
-					<p className="mt-6 text-[clamp(1.15rem,2.4vw,1.4rem)] leading-snug max-w-[32ch]">
-						A ten-week experience of proof-based mathematics. For high-school
-						students. September 28 through December 11, 2026, with a break for
-						US Thanksgiving.
-					</p>
-					<p className="mt-6 font-mono text-sm text-muted">
-						Priority application deadline:{" "}
-						<b className="text-ink font-normal">August 14</b>
-					</p>
-					<div className="mt-8 flex flex-wrap gap-4">
-						{signedIn ? (
-							<Link to="/apply" className="btn btn-primary no-underline">
-								Go to my application →
-							</Link>
-						) : (
-							<Link to="/auth/request" className="btn btn-primary no-underline">
-								Start an application
-							</Link>
-						)}
-						<Link to="/courses" className="btn btn-ghost no-underline">
-							See the courses
+			<div className="max-w-3xl mx-auto px-6 py-16 md:py-24">
+				<p className="smallcaps text-accent mb-6">
+					The Ross Mathematics Program · Online · Fall 2026
+				</p>
+				<h1 className="font-serif font-bold text-[clamp(4rem,10vw,6.5rem)] leading-none tracking-tight">
+					ℝℙ²
+				</h1>
+				<p className="mt-6 text-[clamp(1.15rem,2.4vw,1.4rem)] leading-snug max-w-[32ch]">
+					A ten-week experience of proof-based mathematics. For high-school
+					students. September 28 through December 11, 2026, with a break for
+					US Thanksgiving.
+				</p>
+				<p className="mt-6 font-sans text-sm text-muted">
+					Priority application deadline:{" "}
+					<b className="text-ink font-normal">August 14</b>
+				</p>
+				<div className="mt-8 flex flex-wrap gap-4">
+					{signedIn ? (
+						<Link to="/apply" className="btn btn-primary no-underline">
+							Go to my application →
 						</Link>
-					</div>
-					{!signedIn && (
-						<p className="mt-4 text-sm text-muted">
-							Parent or guardian?{" "}
-							<Link
-								to="/auth/request"
-								search={{ role: "guardian" }}
-								className="text-ink underline underline-offset-2 hover:no-underline"
-							>
-								Register here →
-							</Link>
-						</p>
+					) : (
+						<Link to="/auth/request" className="btn btn-primary no-underline">
+							Start an application
+						</Link>
 					)}
+					<Link to="/courses" className="btn btn-ghost no-underline">
+						See the courses
+					</Link>
 				</div>
-				<figure className="max-w-[17rem] mx-auto md:mx-0">
-					<ProjectiveDisk />
-					<figcaption className="mt-3 text-sm italic text-muted text-center leading-snug">
-						ℝℙ², the real projective plane: a disk whose opposite boundary
-						points are declared to be the same point. Glue carefully.
-					</figcaption>
-				</figure>
+				{!signedIn && (
+					<p className="mt-4 text-sm text-muted">
+						Parent or guardian?{" "}
+						<Link
+							to="/auth/request"
+							search={{ role: "guardian" }}
+							className="text-ink underline underline-offset-2 hover:no-underline"
+						>
+							Register here →
+						</Link>
+					</p>
+				)}
 			</div>
 		</section>
 	);
 }
 
-function ProjectiveDisk() {
-	return (
-		<svg
-			viewBox="0 0 300 300"
-			role="img"
-			aria-label="A disk with antipodal boundary points identified — a standard picture of the real projective plane"
-			xmlns="http://www.w3.org/2000/svg"
-			className="w-full h-auto"
-		>
-			<circle
-				cx="150"
-				cy="150"
-				r="110"
-				fill="none"
-				stroke="#0F1F17"
-				strokeWidth="2"
-			/>
-			<line
-				x1="72.2"
-				y1="72.2"
-				x2="227.8"
-				y2="227.8"
-				stroke="#14532D"
-				strokeWidth="1.5"
-				strokeDasharray="5 5"
-			/>
-			<line
-				x1="72.2"
-				y1="227.8"
-				x2="227.8"
-				y2="72.2"
-				stroke="#14532D"
-				strokeWidth="1.5"
-				strokeDasharray="5 5"
-			/>
-			<circle cx="72.2" cy="72.2" r="5" fill="#14532D" />
-			<circle
-				cx="227.8"
-				cy="227.8"
-				r="5"
-				fill="none"
-				stroke="#14532D"
-				strokeWidth="2"
-			/>
-			<circle cx="227.8" cy="72.2" r="5" fill="#14532D" />
-			<circle
-				cx="72.2"
-				cy="227.8"
-				r="5"
-				fill="none"
-				stroke="#14532D"
-				strokeWidth="2"
-			/>
-			<text
-				x="56"
-				y="60"
-				fontFamily="'Computer Modern Serif', serif"
-				fontStyle="italic"
-				fontSize="17"
-				fill="#0F1F17"
-			>
-				P
-			</text>
-			<text
-				x="234"
-				y="248"
-				fontFamily="'Computer Modern Serif', serif"
-				fontStyle="italic"
-				fontSize="17"
-				fill="#0F1F17"
-			>
-				P′
-			</text>
-			<text
-				x="236"
-				y="60"
-				fontFamily="'Computer Modern Serif', serif"
-				fontStyle="italic"
-				fontSize="17"
-				fill="#0F1F17"
-			>
-				Q
-			</text>
-			<text
-				x="48"
-				y="248"
-				fontFamily="'Computer Modern Serif', serif"
-				fontStyle="italic"
-				fontSize="17"
-				fill="#0F1F17"
-			>
-				Q′
-			</text>
-		</svg>
-	);
-}
 
 function SectionHead({
 	n,
@@ -303,7 +198,7 @@ function Week() {
 						key={i}
 						className="grid gap-x-5 gap-y-1 md:grid-cols-[11rem_1fr] py-4 border-b border-rule"
 					>
-						<div className="font-mono text-sm text-accent pt-1">{when}</div>
+						<div className="font-sans text-sm text-accent pt-1">{when}</div>
 						<div>{what}</div>
 					</div>
 				))}
@@ -401,7 +296,7 @@ function Admissions() {
 							aria-hidden
 							className="absolute -left-[calc(1.5rem+5px)] top-2 w-[9px] h-[9px] rounded-full bg-accent"
 						/>
-						<div className="font-mono text-sm text-accent">{d}</div>
+						<div className="font-sans text-sm text-accent">{d}</div>
 						<div className="mt-1">{t}</div>
 					</li>
 				))}
@@ -470,7 +365,7 @@ function ClosingCTA({ signedIn }: { signedIn: boolean }) {
 					Questions? Write to us at{" "}
 					<a
 						href="mailto:ross@rossprogram.org"
-						className="font-mono text-ink no-underline hover:underline"
+						className="font-sans text-ink no-underline hover:underline"
 					>
 						ross@rossprogram.org
 					</a>

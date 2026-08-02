@@ -137,8 +137,17 @@ function readString(v: string | undefined): string | null {
   if (v === undefined) return null;
   try {
     const parsed = JSON.parse(v);
-    if (typeof parsed === 'string') return parsed;
     if (parsed === null) return null;
+    if (typeof parsed === 'string') return parsed;
+    // Legacy guardian_signature rows were stored as { typed, at } — the same
+    // shape the applicant's SignatureField still uses. Unwrap so the portal
+    // shows the name instead of "[object Object]".
+    if (
+      typeof parsed === 'object' &&
+      typeof (parsed as { typed?: unknown }).typed === 'string'
+    ) {
+      return (parsed as { typed: string }).typed;
+    }
     return String(parsed);
   } catch {
     return v;

@@ -47,7 +47,7 @@ function Hero({ signedIn }: { signedIn: boolean }) {
 				</p>
 				<p className="mt-6 font-sans text-sm text-muted">
 					Priority application deadline:{" "}
-					<b className="text-ink font-normal">August 14</b>
+					<b className="text-ink font-normal">August 21</b>
 				</p>
 				<div className="mt-8 flex flex-wrap gap-4">
 					{signedIn ? (
@@ -244,13 +244,13 @@ function WhoShouldApply() {
 function Admissions() {
 	const items: [string, React.ReactNode][] = [
 		[
-			"Now → August 14",
+			"Now → August 21",
 			<>
-				Applications open. Apply by <b>August 14</b> for priority consideration.
+				Applications open. Apply by <b>August 21</b> for priority consideration.
 			</>,
 		],
 		[
-			"Week of August 21",
+			"Week of August 28",
 			<>
 				First-round offers go out, with your course placement, meeting time, and
 				financial-aid decision.
@@ -336,7 +336,7 @@ function ClosingCTA({ signedIn }: { signedIn: boolean }) {
 				<p className="mt-3 text-ink/85">
 					Applications for the Fall 2026 term are open now.
 					<br />
-					Priority deadline: <b>August 14, 2026</b>.
+					Priority deadline: <b>August 21, 2026</b>.
 				</p>
 				<div className="mt-6 flex justify-center flex-wrap gap-4">
 					{signedIn ? (

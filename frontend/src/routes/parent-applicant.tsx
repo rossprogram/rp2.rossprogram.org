@@ -237,8 +237,8 @@ function AidBlock({
       <h2 className="mb-3">Financial aid</h2>
       <p className="text-muted mb-4">
         Confirm whether the family is requesting financial aid. If yes, please
-        upload supporting documentation (most recent tax return, W-2, or an
-        equivalent summary).
+        upload your most recent tax return showing adjusted gross income
+        (line&nbsp;11 on Form 1040).
       </p>
 
       <div className="mb-6 space-y-2">

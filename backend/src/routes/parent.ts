@@ -151,7 +151,13 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
         size: parsed.data.size,
       });
       if (!result.ok) return reply.code(400).send({ error: result.reason });
-      return { ticket: result.ticket };
+      return {
+        ticket: {
+          uploadUrl: result.ticket.uploadUrl,
+          storageKey: result.ticket.key,
+          expiresAt: result.ticket.expiresAt,
+        },
+      };
     },
   );
 

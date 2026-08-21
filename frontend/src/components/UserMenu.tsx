@@ -65,6 +65,11 @@ export function UserMenu() {
             <div className="smallcaps text-muted mb-1">Signed in as</div>
             <div className="font-mono text-sm text-ink truncate">{email}</div>
           </div>
+          {me.data.roles.includes('admin') && (
+            <MenuLink to="/admin" onClick={() => setOpen(false)}>
+              Admin
+            </MenuLink>
+          )}
           {me.data.roles.includes('guardian') && (
             <MenuLink to="/parent" onClick={() => setOpen(false)}>
               Parent portal
@@ -96,7 +101,7 @@ function MenuLink({
   children,
   onClick,
 }: {
-  to: '/apply' | '/parent';
+  to: '/apply' | '/parent' | '/admin';
   children: React.ReactNode;
   onClick: () => void;
 }) {

@@ -16,6 +16,8 @@ import { applySectionRoute } from './routes/apply-section';
 import { statusRoute } from './routes/status';
 import { parentRoute } from './routes/parent';
 import { parentApplicantRoute } from './routes/parent-applicant';
+import { adminIndexRoute } from './routes/admin';
+import { adminApplicationRoute } from './routes/admin-application';
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -33,4 +35,6 @@ export const routeTree = rootRoute.addChildren([
   statusRoute,
   parentRoute,
   parentApplicantRoute,
+  adminIndexRoute,
+  adminApplicationRoute,
 ]);

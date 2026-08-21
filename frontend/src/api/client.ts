@@ -224,6 +224,63 @@ export function fileDownloadUrl(id: string): string {
   return `/api/application/me/files/${encodeURIComponent(id)}/download`;
 }
 
+/* -------- admin -------- */
+
+export type AdminListRow = {
+  id: string;
+  applicantUserId: string;
+  applicantEmail: string;
+  legalName: string | null;
+  preferredName: string | null;
+  location: string | null;
+  gradeLevel: string | null;
+  status: ApplicationStatus;
+  submittedAt: number | null;
+  updatedAt: number;
+  guardianEmail: string | null;
+  guardianAccepted: boolean;
+  coursePreferences: string[];
+  fileCount: number;
+};
+
+export function fetchAdminApplications(
+  includeDrafts = false,
+): Promise<{ applications: AdminListRow[] }> {
+  const q = includeDrafts ? '?includeDrafts=true' : '';
+  return api.get(`/api/admin/applications${q}`);
+}
+
+export type AdminApplicationDetail = {
+  id: string;
+  applicantUserId: string;
+  applicantEmail: string;
+  status: ApplicationStatus;
+  submittedAt: number | null;
+  guardianSubmittedAt: number | null;
+  updatedAt: number;
+  createdAt: number;
+  responses: Record<string, unknown>;
+  availability: { weekday: number; startMin: number; endMin: number }[];
+  coursePreferences: { courseKey: string; rank: number }[];
+  files: ApplicationFile[];
+  guardian: {
+    email: string;
+    acceptedAt: number | null;
+    invitedAt: number | null;
+    relationship: 'parent' | 'guardian' | 'other';
+  } | null;
+};
+
+export function fetchAdminApplication(
+  id: string,
+): Promise<{ application: AdminApplicationDetail }> {
+  return api.get(`/api/admin/applications/${encodeURIComponent(id)}`);
+}
+
+export function adminFileDownloadUrl(appId: string, fileId: string): string {
+  return `/api/admin/applications/${encodeURIComponent(appId)}/files/${encodeURIComponent(fileId)}/download`;
+}
+
 export function uploadFileWithProgress(
   uploadUrl: string,
   file: File,

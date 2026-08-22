@@ -124,8 +124,9 @@ function StatusLine({
               on <em>{submitted}</em>
             </>
           ) : null}{' '}
-          and it is now with the review team. Decisions will go out in the round
-          following the priority deadline.
+          and it is now with the review team. First-round decisions begin going
+          out the week of August 28. Applications received after the priority
+          deadline are reviewed on a rolling basis.
         </>
       );
     case 'accepted':

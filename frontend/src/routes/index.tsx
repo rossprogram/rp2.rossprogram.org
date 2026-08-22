@@ -46,8 +46,9 @@ function Hero({ signedIn }: { signedIn: boolean }) {
 					US Thanksgiving.
 				</p>
 				<p className="mt-6 font-sans text-sm text-muted">
-					Priority application deadline:{" "}
-					<b className="text-ink font-normal">August 21</b>
+					The priority deadline was{" "}
+					<b className="text-ink font-normal">August 21</b>. We are still
+					accepting applications on a rolling basis while seats remain.
 				</p>
 				<div className="mt-8 flex flex-wrap gap-4">
 					{signedIn ? (
@@ -244,16 +245,19 @@ function WhoShouldApply() {
 function Admissions() {
 	const items: [string, React.ReactNode][] = [
 		[
-			"Now → August 21",
+			"Through August 21",
 			<>
-				Applications open. Apply by <b>August 21</b> for priority consideration.
+				Priority application window. This deadline has now passed, but{" "}
+				<b>we are still accepting applications</b> on a rolling basis while
+				seats remain.
 			</>,
 		],
 		[
 			"Week of August 28",
 			<>
-				First-round offers go out, with your course placement, meeting time, and
-				financial-aid decision.
+				First-round offers go out to priority applicants, with course placement,
+				meeting time, and financial-aid decision. Late applications continue to
+				be reviewed as they arrive.
 			</>,
 		],
 		[
@@ -285,9 +289,10 @@ function Admissions() {
 			</p>
 			<p className="mt-4">
 				We read what you write, and we use the whole pool of applications to
-				decide which courses to run and when sections meet. That&rsquo;s why the
-				priority deadline matters: applying early lets us schedule sections
-				around <i>you</i>.
+				decide which courses to run and when sections meet. The priority
+				window closed on August 21 &mdash; but if you missed it, apply anyway.
+				We are reviewing late applications on a rolling basis and will offer
+				seats where they remain.
 			</p>
 			<ol className="mt-6 border-l-2 border-rule pl-6 space-y-6">
 				{items.map(([d, t], i) => (
@@ -334,9 +339,9 @@ function ClosingCTA({ signedIn }: { signedIn: boolean }) {
 					Think deeply of simple things.
 				</h2>
 				<p className="mt-3 text-ink/85">
-					Applications for the Fall 2026 term are open now.
+					The priority deadline (<b>August 21, 2026</b>) has passed,
 					<br />
-					Priority deadline: <b>August 21, 2026</b>.
+					but we are still accepting applications while seats remain.
 				</p>
 				<div className="mt-6 flex justify-center flex-wrap gap-4">
 					{signedIn ? (

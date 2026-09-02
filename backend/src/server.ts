@@ -11,10 +11,13 @@ import { registerApplicationRoutes } from './routes/application.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerParentRoutes } from './routes/parent.js';
 import { registerUploadRoutes } from './routes/uploads.js';
+import { registerOfferRoutes } from './routes/offer.js';
+import { registerStripeWebhookRoutes } from './routes/stripe-webhook.js';
+import { initStripe } from './integrations/stripe/index.js';
 import { attachSession } from './auth/session.js';
 import { runMigrations } from './db/migrate.js';
 
-async function build() {
+export async function build() {
   const app = Fastify({
     logger: {
       level: env.NODE_ENV === 'test' ? 'silent' : 'info',
@@ -24,7 +27,13 @@ async function build() {
   });
 
   await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
+  await app.register(rateLimit, {
+    // Effectively off under test: the suite drives hundreds of requests in a
+    // second and would otherwise trip the limiter, making failures depend on
+    // test order. Per-route limits still apply where they are declared.
+    max: env.NODE_ENV === 'test' ? 100_000 : 100,
+    timeWindow: '1 minute',
+  });
 
   app.addContentTypeParser(
     ['application/pdf', 'image/png', 'image/jpeg', 'application/octet-stream'],
@@ -41,12 +50,16 @@ async function build() {
   await registerAdminRoutes(app);
   await registerParentRoutes(app);
   await registerUploadRoutes(app);
+  await registerOfferRoutes(app);
+  await registerStripeWebhookRoutes(app);
 
   return app;
 }
 
 async function main() {
   runMigrations();
+  // Warm the SDK so the webhook handler can verify signatures synchronously.
+  await initStripe();
   const app = await build();
   await app.listen({ port: env.PORT, host: env.HOST });
 }

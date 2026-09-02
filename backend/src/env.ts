@@ -21,6 +21,31 @@ const Env = z.object({
   STORAGE_S3_BUCKET: z.string().optional(),
   STORAGE_S3_REGION: z.string().default('us-east-2'),
   STORAGE_S3_PREFIX: z.string().default('uploads/'),
+
+  // Payments are opt-in so dev (and a pilot whose Stripe account has not
+  // cleared review yet) boots without them. The $0-balance enrollment path
+  // works fine with this off.
+  PAYMENTS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  STRIPE_SECRET_KEY: z.string().startsWith('sk_').optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().startsWith('whsec_').optional(),
+}).superRefine((v, ctx) => {
+  if (v.PAYMENTS_ENABLED && !v.STRIPE_SECRET_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['STRIPE_SECRET_KEY'],
+      message: 'STRIPE_SECRET_KEY is required when PAYMENTS_ENABLED=true',
+    });
+  }
+  if (v.PAYMENTS_ENABLED && !v.STRIPE_WEBHOOK_SECRET) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['STRIPE_WEBHOOK_SECRET'],
+      message: 'STRIPE_WEBHOOK_SECRET is required when PAYMENTS_ENABLED=true',
+    });
+  }
 });
 
 export const env = Env.parse(process.env);

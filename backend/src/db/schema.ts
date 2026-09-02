@@ -110,6 +110,9 @@ export const application = sqliteTable(
         'submitted',
         'under_review',
         'accepted',
+        'awaiting_payment',
+        'enrolled',
+        'declined',
         'waitlisted',
         'rejected',
         'withdrawn',
@@ -230,3 +233,116 @@ export const guardianLink = sqliteTable(
     guardianIdx: index('guardian_link_guardian_idx').on(t.guardianUserId),
   }),
 );
+
+/*
+ * The offer letter for a family.
+ *
+ * This deliberately merges what CLAUDE.md sketches as three separate entities
+ * (`offer`, `financial_aid_decision`, `enrollment`). At pilot scale one row per
+ * application is the whole story, and 1:1:1 tables would only add joins. Split
+ * them if a student can ever hold two offers at once.
+ *
+ * `response` + `payment` are authoritative; `application.status` is a
+ * denormalization derived from them by deriveStatus() in services/offers.ts.
+ */
+export const offer = sqliteTable(
+  'offer',
+  {
+    id: text('id').primaryKey(),
+    applicationId: text('application_id')
+      .notNull()
+      .references(() => application.id, { onDelete: 'cascade' }),
+    courseKey: text('course_key'),
+    // Free text, e.g. 'TOPOLOGY-2'. Not a foreign key: at pilot scale the
+    // section list lives in a spreadsheet, not a table.
+    section: text('section'),
+    // Breakout group within a section — CLAUDE.md's `cohort`. Free text so a
+    // group can be '5' or 'B' without a migration.
+    cohort: text('cohort'),
+    // The two weekly meetings, held separately because they are separately
+    // scheduled: one 90-min problem session and one 90-min office hour.
+    // Stored as the admin typed them, in the STUDENT's local time.
+    problemSession: text('problem_session'),
+    officeHours: text('office_hours'),
+    aidAmountCents: integer('aid_amount_cents').notNull().default(0),
+    amountDueCents: integer('amount_due_cents').notNull().default(0),
+    // A calendar date in PROGRAM_TIMEZONE, stored 'YYYY-MM-DD'. Deliberately
+    // not a unix timestamp: a deadline is a day, not an instant, and string
+    // comparison against today-in-New-York is exact and dependency-free.
+    enrollmentDeadline: text('enrollment_deadline'),
+    // Family-visible. Internal review notes go on application.decision_notes.
+    notes: text('notes'),
+    response: text('response', { enum: ['accepted', 'declined'] }),
+    respondedAt: integer('responded_at'),
+    respondedByUserId: text('responded_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    notifiedAt: integer('notified_at'),
+    lastImportId: text('last_import_id'),
+    createdAt: integer('created_at').notNull().default(nowSql),
+    updatedAt: integer('updated_at').notNull().default(nowSql),
+  },
+  (t) => ({
+    applicationUnique: uniqueIndex('offer_application_idx').on(t.applicationId),
+  }),
+);
+
+export const payment = sqliteTable(
+  'payment',
+  {
+    id: text('id').primaryKey(),
+    // restrict, not cascade: never let an application delete a money record.
+    applicationId: text('application_id')
+      .notNull()
+      .references(() => application.id, { onDelete: 'restrict' }),
+    stripeCheckoutSessionId: text('stripe_checkout_session_id').notNull().unique(),
+    stripePaymentIntentId: text('stripe_payment_intent_id'),
+    // The amount QUOTED at session creation, not the offer's current
+    // amount_due. If admin re-imports a new price while a session is open,
+    // this is what the family actually agreed to pay.
+    amountCents: integer('amount_cents').notNull(),
+    currency: text('currency').notNull().default('usd'),
+    status: text('status', {
+      enum: ['created', 'paid', 'failed', 'expired', 'refunded'],
+    })
+      .notNull()
+      .default('created'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: integer('created_at').notNull().default(nowSql),
+    paidAt: integer('paid_at'),
+  },
+  (t) => ({
+    appIdx: index('payment_app_idx').on(t.applicationId),
+  }),
+);
+
+// Webhook idempotency ledger. The PK is Stripe's own event id, so a duplicate
+// delivery loses the insert race and the handler returns early.
+export const stripeEvent = sqliteTable('stripe_event', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(),
+  payload: text('payload').notNull(),
+  receivedAt: integer('received_at').notNull().default(nowSql),
+  handledAt: integer('handled_at'),
+  handlerResult: text('handler_result'),
+});
+
+// One row per publish. The id is a client-supplied idempotency key, so a
+// double-clicked Publish is a no-op rather than a second batch.
+export const offerImport = sqliteTable('offer_import', {
+  id: text('id').primaryKey(),
+  importedByUserId: text('imported_by_user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'restrict' }),
+  filename: text('filename').notNull(),
+  fileHash: text('file_hash').notNull(),
+  rowCount: integer('row_count').notNull(),
+  changedCount: integer('changed_count').notNull(),
+  changedAppIds: text('changed_app_ids').notNull(), // JSON string[]
+  diffJson: text('diff_json').notNull(), // the applied diff, for audit
+  createdAt: integer('created_at').notNull().default(nowSql),
+  notifiedAt: integer('notified_at'),
+  notifiedCount: integer('notified_count'),
+});

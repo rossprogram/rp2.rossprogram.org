@@ -1,3 +1,5 @@
+import { COURSES } from './offers.js';
+
 /*
  * Declarative source of truth for the RP2 application form.
  *
@@ -107,12 +109,12 @@ const PARTICIPATION_STYLE: readonly Option[] = [
   { value: 'written', label: 'I prefer written discussion, but I am willing to speak when needed' },
 ];
 
-const COURSE_OPTIONS: readonly Option[] = [
-  { value: 'topology', label: 'Point-Set Topology' },
-  { value: 'ggt', label: 'Geometric Group Theory' },
-  { value: 'cgt', label: 'Combinatorial Game Theory' },
-  { value: 'quadratic', label: 'Quadratic Forms' },
-];
+// Course keys are shared with the offer importer; COURSES in offers.ts is the
+// source of truth so the two can never disagree.
+const COURSE_OPTIONS: readonly Option[] = COURSES.map((c) => ({
+  value: c.key,
+  label: c.label,
+}));
 
 const AID_LEVEL: readonly Option[] = [
   { value: 'none', label: 'No aid requested' },

@@ -42,7 +42,7 @@ function Hero({ signedIn }: { signedIn: boolean }) {
 				</h1>
 				<p className="mt-6 text-[clamp(1.15rem,2.4vw,1.4rem)] leading-snug max-w-[32ch]">
 					A ten-week experience of proof-based mathematics. For high-school
-					students. September 28 through December 11, 2026, with a break for
+					students. September 27 through December 12, 2026, with a break for
 					US Thanksgiving.
 				</p>
 				<p className="mt-6 font-sans text-sm text-muted">
@@ -269,10 +269,10 @@ function Admissions() {
 			</>,
 		],
 		[
-			"September 28",
+			"September 27",
 			<>
 				Classes start. Ten weeks of instruction, one week off at Thanksgiving,
-				done December 11.
+				done December 12.
 			</>,
 		],
 	];

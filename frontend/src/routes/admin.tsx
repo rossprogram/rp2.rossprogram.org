@@ -48,6 +48,10 @@ function AdminIndexPage() {
         {q.isLoading
           ? 'Loading…'
           : `${filtered.length} of ${rows.length} shown`}
+        {' · '}
+        <Link to="/admin/offers" className="text-ink">
+          Offers &amp; import
+        </Link>
       </p>
 
       <div className="flex flex-wrap items-baseline gap-4 mb-6">
@@ -68,6 +72,9 @@ function AdminIndexPage() {
           <option value="awaiting_guardian">Awaiting guardian</option>
           <option value="under_review">Under review</option>
           <option value="accepted">Accepted</option>
+          <option value="awaiting_payment">Awaiting payment</option>
+          <option value="enrolled">Enrolled</option>
+          <option value="declined">Declined</option>
           <option value="waitlisted">Waitlisted</option>
           <option value="rejected">Rejected</option>
           <option value="withdrawn">Withdrawn</option>
@@ -175,13 +182,15 @@ function StatusPill({ status }: { status: ApplicationStatus }) {
   const cls =
     status === 'submitted' || status === 'under_review'
       ? 'text-accent'
-      : status === 'accepted'
+      : status === 'accepted' || status === 'awaiting_payment'
         ? 'text-accent font-medium'
-        : status === 'waitlisted'
-          ? 'text-muted'
-          : status === 'rejected' || status === 'withdrawn'
-            ? 'text-muted line-through'
-            : 'text-muted';
+        : status === 'enrolled'
+          ? 'text-accent font-medium underline decoration-1 underline-offset-4'
+          : status === 'waitlisted'
+            ? 'text-muted'
+            : status === 'rejected' || status === 'withdrawn' || status === 'declined'
+              ? 'text-muted line-through'
+              : 'text-muted';
   return <span className={`smallcaps ${cls}`}>{label}</span>;
 }
 

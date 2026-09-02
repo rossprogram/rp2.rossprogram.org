@@ -3,6 +3,7 @@ import { rootRoute } from './root';
 import { Prose } from '../components/Layout';
 import { fetchMe, fetchApplication } from '../api/client';
 import { useApplication } from '../features/applicant/useApplication';
+import { OfferPanel } from '../features/offer/OfferPanel';
 
 async function ensureAuth({
   context,
@@ -65,24 +66,37 @@ function StatusPage() {
     );
   }
 
+  // Once there is an offer, it IS the status page — the panel carries the
+  // headline, the terms, and the accept/decline controls.
+  const offerLed =
+    status === 'accepted' ||
+    status === 'awaiting_payment' ||
+    status === 'enrolled' ||
+    status === 'declined';
+
   return (
     <Prose>
       <p className="smallcaps text-accent mb-6">Application status</p>
-      <h1 className="mb-4">
-        {status === 'submitted' || status === 'under_review'
-          ? 'Your application is in.'
-          : status === 'accepted'
-            ? 'You are in.'
-            : status === 'waitlisted'
-              ? 'You are on the waitlist.'
-              : status === 'rejected'
-                ? 'A decision has been made.'
-                : 'Your application has been withdrawn.'}
-      </h1>
 
-      <p className="text-lg text-ink/90 mb-6">
-        <StatusLine status={status} submittedAt={app?.submittedAt ?? null} />
-      </p>
+      {offerLed ? (
+        <OfferPanel appId={app?.id} />
+      ) : (
+        <>
+          <h1 className="mb-4">
+            {status === 'submitted' || status === 'under_review'
+              ? 'Your application is in.'
+              : status === 'waitlisted'
+                ? 'You are on the waitlist.'
+                : status === 'rejected'
+                  ? 'A decision has been made.'
+                  : 'Your application has been withdrawn.'}
+          </h1>
+
+          <p className="text-lg text-ink/90 mb-6">
+            <StatusLine status={status} submittedAt={app?.submittedAt ?? null} />
+          </p>
+        </>
+      )}
 
       <p className="text-muted mb-10 italic">
         You will receive an email at{' '}
@@ -130,6 +144,8 @@ function StatusLine({
         </>
       );
     case 'accepted':
+      // Only reached when a decision is recorded but the offer has not been
+      // published to the family yet.
       return (
         <>Welcome to the program. Your offer letter and next steps are on the way.</>
       );

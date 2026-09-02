@@ -53,6 +53,9 @@ export type ApplicationStatus =
   | 'submitted'
   | 'under_review'
   | 'accepted'
+  | 'awaiting_payment'
+  | 'enrolled'
+  | 'declined'
   | 'waitlisted'
   | 'rejected'
   | 'withdrawn';
@@ -300,4 +303,179 @@ export function uploadFileWithProgress(
     xhr.onerror = () => reject(new Error('upload failed'));
     xhr.send(file);
   });
+}
+
+/* -------- offers -------- */
+
+export type OfferView = {
+  courseKey: string | null;
+  courseLabel: string | null;
+  section: string | null;
+  cohort: string | null;
+  problemSession: string | null;
+  officeHours: string | null;
+  tuitionCents: number;
+  aidAmountCents: number;
+  amountDueCents: number;
+  enrollmentDeadline: string | null;
+  notes: string | null;
+  response: 'accepted' | 'declined' | null;
+  respondedAt: number | null;
+  respondedByKind: 'student' | 'guardian' | null;
+  paidCents: number;
+  pastDeadline: boolean;
+  paymentsEnabled: boolean;
+};
+
+export type OfferEnvelope = {
+  applicationId: string;
+  status: ApplicationStatus;
+  actorKind: 'student' | 'guardian';
+  studentName: string | null;
+  offer: OfferView | null;
+};
+
+export type OfferResponseResult = {
+  status: ApplicationStatus;
+  idempotent: boolean;
+};
+
+export function fetchOffer(appId: string): Promise<OfferEnvelope> {
+  return api.get<OfferEnvelope>(`/api/offer/${encodeURIComponent(appId)}`);
+}
+
+export function respondToOffer(
+  appId: string,
+  response: 'accept' | 'decline',
+): Promise<OfferResponseResult> {
+  return api.post<OfferResponseResult>(
+    `/api/offer/${encodeURIComponent(appId)}/${response}`,
+  );
+}
+
+export function createCheckoutSession(appId: string): Promise<{ url: string }> {
+  return api.post<{ url: string }>(
+    `/api/offer/${encodeURIComponent(appId)}/checkout-session`,
+  );
+}
+
+/* -------- admin: offer import -------- */
+
+export type ImportIssue = {
+  row: number;
+  column: string | null;
+  code: string;
+  message: string;
+};
+
+export type ImportChange = {
+  field: string;
+  column: string;
+  before: unknown;
+  after: unknown;
+};
+
+export type ImportRow = {
+  row: number;
+  appId: string;
+  studentName: string | null;
+  studentEmail: string | null;
+  currentStatus: ApplicationStatus | null;
+  changes: ImportChange[];
+  errors: ImportIssue[];
+  warnings: ImportIssue[];
+};
+
+export type ImportPreview = {
+  fileHash: string;
+  filename: string;
+  rowCount: number;
+  appliedColumns: string[];
+  absentColumns: string[];
+  unknownColumns: string[];
+  changedRows: ImportRow[];
+  errorRows: ImportRow[];
+  warningRows: ImportRow[];
+  unchangedCount: number;
+  errorCount: number;
+  fatal: ImportIssue[];
+};
+
+export type PublishResult = {
+  importId: string;
+  applied: number;
+  changedAppIds: string[];
+  alreadyPublished: boolean;
+};
+
+export type NotifyResult = {
+  sent: number;
+  skipped: number;
+  recipients: string[];
+};
+
+export type ImportRecord = {
+  id: string;
+  filename: string;
+  rowCount: number;
+  changedCount: number;
+  createdAt: number;
+  notifiedAt: number | null;
+  notifiedCount: number | null;
+};
+
+/**
+ * POST a file as raw bytes. The backend already parses octet-stream into a
+ * Buffer for the presigned-PUT flow, so this needs no multipart handling.
+ */
+async function postBinary<T>(
+  path: string,
+  file: File,
+  headers: Record<string, string> = {},
+): Promise<T> {
+  const res = await fetch(path, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/octet-stream', ...headers },
+    body: file,
+  });
+  const isJson = res.headers.get('content-type')?.includes('application/json');
+  const data = isJson ? await res.json() : await res.text();
+  if (!res.ok) throw new ApiError(res.status, data);
+  return data as T;
+}
+
+export function offerTemplateUrl(format: 'csv' | 'xlsx'): string {
+  return `/api/admin/offers/template?format=${format}`;
+}
+
+export async function previewOfferImport(file: File): Promise<ImportPreview> {
+  const res = await postBinary<{ preview: ImportPreview }>(
+    `/api/admin/offers/preview?filename=${encodeURIComponent(file.name)}`,
+    file,
+  );
+  return res.preview;
+}
+
+export function publishOfferImport(
+  file: File,
+  importId: string,
+  fileHash: string,
+): Promise<PublishResult> {
+  return postBinary<PublishResult>(
+    `/api/admin/offers/publish?filename=${encodeURIComponent(file.name)}`,
+    file,
+    { 'x-import-id': importId, 'x-file-hash': fileHash },
+  );
+}
+
+export function notifyImport(importId: string): Promise<NotifyResult> {
+  return api.post<NotifyResult>(
+    `/api/admin/offers/imports/${encodeURIComponent(importId)}/notify`,
+  );
+}
+
+export async function fetchImports(): Promise<ImportRecord[]> {
+  const res = await api.get<{ imports: ImportRecord[] }>('/api/admin/offers/imports');
+  return res.imports;
 }

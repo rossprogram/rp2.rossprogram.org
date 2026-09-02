@@ -16,6 +16,7 @@ import {
   uploadFileWithProgress,
   type ApplicationFile,
 } from '../api/client';
+import { OfferPanel } from '../features/offer/OfferPanel';
 
 async function ensureGuardian() {
   const me = await fetchMe();
@@ -80,6 +81,9 @@ function GuardianApplicantPage() {
         two tasks below.
       </p>
 
+      {/* Renders nothing until there is an offer the family has been told about. */}
+      <OfferPanel appId={appId} />
+
       <ProgramFacts />
 
       <SignatureBlock
@@ -122,7 +126,7 @@ function ProgramFacts() {
       </div>
       <div>
         <div className="smallcaps text-muted">Dates</div>
-        <div className="text-ink">Sep 28 – Dec 11, 2026</div>
+        <div className="text-ink">Sep 27 – Dec 12, 2026</div>
       </div>
       <div>
         <div className="smallcaps text-muted">Format</div>

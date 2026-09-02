@@ -11,7 +11,7 @@ scope, timeline, courses, staffing model, and the application questions verbatim
 
 ## Program shape (short version)
 
-- **Pilot term:** ten weeks, Sep 28 – Dec 11, 2026, one-week Thanksgiving break.
+- **Pilot term:** ten weeks, Sep 27 – Dec 12, 2026, one-week Thanksgiving break.
 - **Format:** one 90-min live Zoom session + one 90-min office hour per week per
   course. Ross-style problem sets outside class.
 - **Courses (candidates):** point-set topology, geometric group theory,
@@ -28,10 +28,13 @@ workflows are first-class concerns, not afterthoughts.
 
 ## Current focus
 
-**The application portal is priority #1.** Everything else (payments, Zoom
-provisioning, Discord role sync, Gradescope wiring, attendance) is downstream and
-should not be built until the application flow works end-to-end for applicants
-and admin reviewers.
+**The application portal shipped.** Applicants apply, admin reviews, and the
+offer/enrollment loop is closed: admin publishes decisions from a spreadsheet,
+families accept or decline in the portal, and Stripe Checkout collects tuition.
+
+**Now:** getting the Fall 2026 cohort enrolled before classes start Sep 27.
+Zoom provisioning, Discord role sync, Gradescope wiring, and attendance are
+still downstream and should not be built until enrollment is settled.
 
 Concretely, "done" for the first milestone means:
 
@@ -43,9 +46,16 @@ Concretely, "done" for the first milestone means:
    review notes + a decision (accept / waitlist / reject / hold).
 3. Applicant sees a status page after submission.
 
-Sending offer letters, collecting payment, and enrollment flows come *after* this
-lands. Do not scaffold Stripe/Zoom/Discord integrations until the review flow is
-usable.
+4. Admin downloads a prefilled CSV/XLSX of current statuses, edits it, and
+   publishes it back through the portal with a preview of every field-level
+   change and row error before anything is written. A separate button then
+   emails affected families.
+5. A student *or* their guardian sees the offer (course, section, schedule,
+   tuition − aid = balance, deadline, notes) and accepts or declines. A $0
+   balance enrolls immediately; otherwise Stripe Checkout does, via webhook.
+
+Do not scaffold Zoom/Discord/Gradescope integrations until enrollment is
+settled.
 
 ## Architecture
 
@@ -175,7 +185,38 @@ The first migration only needs to cover these:
 - `application_file` — application_id, kind (`transcript` | `aid_doc` | other),
   s3_key, filename, content_type, size, uploaded_at.
 - `application_review` — application_id, reviewer_user_id, notes, score,
-  reviewed_at. Multiple reviews per application are allowed.
+  reviewed_at. Multiple reviews per application are allowed. *(Not built —
+  `application.decision_notes` currently carries admin-only notes, written by
+  the spreadsheet import's `internal_notes` column.)*
+
+### Offers and enrollment
+
+- `offer` — 1:1 with `application`. course_key, section, schedule,
+  aid_amount_cents, amount_due_cents, enrollment_deadline (`'YYYY-MM-DD'`),
+  notes (**family-visible**), response (`accepted` | `declined`), responded_at,
+  responded_by_user_id, notified_at, last_import_id.
+  Deliberately merges what this doc sketches as `offer` +
+  `financial_aid_decision` + `enrollment`: at pilot scale one row per
+  application is the whole story.
+- `payment` — stripe_checkout_session_id (unique), stripe_payment_intent_id,
+  amount_cents (**as quoted at session creation**, not the offer's current
+  price), status, paid_at.
+- `stripe_event` — PK is Stripe's event id; the webhook idempotency ledger.
+- `offer_import` — one row per publish. PK is a client-supplied idempotency
+  key, so a double-clicked Publish is a no-op. Stores the applied diff.
+
+`offer.response` plus the sum of paid payments is authoritative;
+`application.status` is a denormalization recomputed by `deriveStatus()` in
+`backend/src/services/offers.ts` inside every write transaction. Never set
+those three statuses anywhere else.
+
+Import columns are declared once in `shared/src/offers.ts`
+(`OFFER_IMPORT_COLUMNS`) and drive template generation, parsing, validation,
+and the preview UI. Blank-cell rule: **a missing column means "don't touch that
+field"; an empty cell in a present column means "clear it."** That is only safe
+because the template arrives prefilled — which is also why an untouched
+download must re-import as zero changes. `backend/test/roundtrip.test.ts`
+guards that invariant; if it fails, the money or date coercers have regressed.
 
 Later entities (do not build yet, but keep the shape in mind so we don't paint
 ourselves into corners):
@@ -277,8 +318,12 @@ narrow interface. Handlers never talk to Stripe/Zoom/Discord SDKs directly.
   `services/`.
 - **Migrations are additive and versioned.** Never edit an existing migration
   after it's been applied to any environment.
-- **All timestamps are stored as UTC ISO-8601 strings** (or unix seconds for
-  short-lived tokens). Timezone conversion happens at the edges.
+- **All timestamps are stored as unix seconds** (integers), defaulting to
+  `(CAST(strftime('%s','now') AS INTEGER))`. Timezone conversion happens at the
+  edges. The one exception is a *calendar date* like `offer.enrollment_deadline`,
+  stored as `'YYYY-MM-DD'` text: a deadline is a day, not an instant, and
+  string-comparing against today-in-`PROGRAM_TIMEZONE` cannot be off by one for
+  a family in another timezone.
 - **All money is integer cents** in a single currency (USD) for the pilot.
 - **PII lives in the DB, not in logs.** Structured logs; scrub emails / names.
 - **Youth-safety first.** Any feature that puts minors in contact with adults
@@ -297,7 +342,6 @@ narrow interface. Handlers never talk to Stripe/Zoom/Discord SDKs directly.
 
 Do not build any of the following until the application portal ships:
 
-- Payment collection / Stripe integration
 - Zoom meeting provisioning
 - Discord role sync
 - Gradescope integration

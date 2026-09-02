@@ -131,6 +131,194 @@ sudo systemctl restart rp2
 
 Caddy picks up static-file changes immediately (no restart).
 
+## Turning on Stripe
+
+Payments are gated behind `PAYMENTS_ENABLED`. Everything else — offers,
+accept/decline, and full-scholarship enrollment — works with this off, so you
+can leave it off until you are ready and nothing else changes.
+
+`env.ts` refuses to boot if `PAYMENTS_ENABLED=true` without both keys, so a
+half-finished setup fails loudly at startup rather than at a family's first
+payment.
+
+### 1. Test mode first, on your laptop
+
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+
+`stripe listen` prints a `whsec_…`. **That is your local webhook secret and it
+is not the same value as the dashboard's** — mixing the two up is the classic
+hour of confusion here. Put it, plus your *test* secret key, in
+`backend/.env`:
+
+```
+PAYMENTS_ENABLED=true
+STRIPE_SECRET_KEY=sk_test_…
+STRIPE_WEBHOOK_SECRET=whsec_…      # from `stripe listen`
+```
+
+Restart the backend, publish an offer with a balance, and pay with card
+`4242 4242 4242 4242`, any future expiry, any CVC.
+
+Do the run twice, and the second time **close the Checkout tab the instant the
+payment goes through**, so the browser never returns to `success_url`. The
+student must still end up enrolled. That is the test that proves the webhook is
+authoritative rather than the redirect — and the redirect genuinely does go
+missing in real life, on mobile banking flows and closed tabs.
+
+Note that `stripe trigger checkout.session.completed` is *not* a substitute for
+driving the real UI. The fixture has no matching `payment` row, so it only
+exercises the unknown-session guard.
+
+### 2. Register the live webhook endpoint
+
+Dashboard → Developers → Webhooks → **Add endpoint**.
+
+- URL: `https://rp2.rossprogram.org/api/stripe/webhook`
+- Events to send:
+  - `checkout.session.completed` — the only event that enrolls anyone
+  - `checkout.session.expired` — marks an abandoned session, changes no status
+  - `charge.refunded` — recorded and surfaced; never un-enrolls automatically
+
+Then copy that endpoint's **Signing secret** (`whsec_…`).
+
+Caddy already proxies all of `/api/*` to the backend, so there is no reverse
+proxy change to make.
+
+### 3. Live keys on the server
+
+```bash
+sudo -e /opt/rp2/backend/.env
+```
+
+```
+PAYMENTS_ENABLED=true
+STRIPE_SECRET_KEY=sk_live_…
+STRIPE_WEBHOOK_SECRET=whsec_…     # the DASHBOARD's, not `stripe listen`'s
+```
+
+```bash
+sudo systemctl restart rp2
+sudo journalctl -u rp2 -n 30      # a bad key shows up here immediately
+```
+
+### 4. Confirm it is live
+
+Send a test event from the dashboard endpoint page and watch for a `200`. Then:
+
+```bash
+# Should be 400 with no stripe_event row written.
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -X POST https://rp2.rossprogram.org/api/stripe/webhook \
+  -H 'Content-Type: application/json' \
+  -H 'stripe-signature: garbage' -d '{}'
+```
+
+Do one real £/$ transaction against a live card and refund it from the
+dashboard. The refund is recorded but deliberately does **not** un-enroll the
+student — that stays a human decision.
+
+### Dashboard walkthrough
+
+Stripe reorganizes its dashboard fairly often and renames things (Webhooks
+became "Event destinations" in the newer Workbench UI). If a path below does
+not match what you see, use the dashboard search box — searching for "API keys"
+or "Webhooks" jumps straight there and survives their redesigns.
+
+**Watch the test/live toggle.** It is near the top of the dashboard, and keys
+and webhook endpoints are *separate per mode*. A test-mode key with a live-mode
+webhook secret is the most common way to get this wrong.
+
+#### a. Secret key
+
+*Developers → API keys*
+
+Copy the **Secret key** (`sk_live_…`; you have to click to reveal it). That is
+`STRIPE_SECRET_KEY`.
+
+Optionally, prefer a **restricted key** — *Create restricted key*, grant only
+**Checkout Sessions: write**, and leave everything else at None. That is all
+this app does with the API; the webhook verifies signatures locally and needs
+no permission at all. A leaked restricted key cannot issue refunds or read your
+customer list.
+
+The publishable key is not used. Checkout is a redirect to a Stripe-hosted
+page, so there is no Stripe.js on our pages.
+
+#### b. Webhook endpoint
+
+*Developers → Webhooks → Add endpoint*
+
+| Field | Value |
+|---|---|
+| Endpoint URL | `https://rp2.rossprogram.org/api/stripe/webhook` |
+| API version | `2026-08-26.dahlia` — must match `STRIPE_API_VERSION` in code |
+| Events | `checkout.session.completed`, `checkout.session.expired`, `charge.refunded` |
+
+The endpoint's API version defaults to your *account* default, which is a
+separate setting from the one the code pins for outgoing requests. Set it
+explicitly so requests and events speak one version, and so nobody clicking
+"upgrade" in the dashboard changes event shapes under a running server.
+
+If you bump the `stripe` npm package, update `STRIPE_API_VERSION` and this
+endpoint together. `test/stripe-version.test.ts` fails if the pin drifts from
+the installed SDK, but it cannot see the dashboard — that half is on you.
+
+Add it, then open the endpoint and reveal its **Signing secret** (`whsec_…`).
+That is `STRIPE_WEBHOOK_SECRET`.
+
+Send a test event from that page; you want a `200`. Unhandled event types also
+return `200` on purpose — Stripe retries anything else for days.
+
+#### c. Branding — families see this
+
+*Settings → Business → Branding*
+
+Set the public business name, icon, and accent colour. This is the header of
+the Checkout page a parent lands on, so it should read **Ross Mathematics
+Foundation**, not a legal entity name they will not recognize.
+
+#### d. Statement descriptor — this prevents chargebacks
+
+*Settings → Payments → (statement descriptor)*
+
+Set something a parent will recognize on a card statement, e.g.
+`ROSS MATH RP2`. An unrecognized descriptor on a $750 charge is a common cause
+of disputes, and disputes cost money and time to contest.
+
+#### e. Receipt emails
+
+*Settings → Payments → Customer emails → Successful payments*
+
+Turn this on. The session passes `customer_email`, so Stripe will email a
+payment receipt automatically. That is separate from — and useful alongside —
+our own "you are enrolled" email, which is not a financial record.
+
+#### What you do NOT need to set up
+
+- **Products or Prices.** The session builds its line item inline from the
+  offer's `amount_due`, so the catalog stays empty.
+- **Payment methods.** The code pins `payment_method_types: ['card']`, so
+  toggling Link, Klarna, or bank debits in the dashboard has no effect. Apple
+  Pay and Google Pay ride along with cards automatically.
+- **Stripe Tax.** Tuition here is not being taxed; leave it off.
+- **Customer portal / subscriptions.** One-time payments only.
+
+### Things worth knowing
+
+- The API version is pinned as `STRIPE_API_VERSION` in
+  `backend/src/integrations/stripe/index.ts` and asserted against the SDK by
+  `test/stripe-version.test.ts`. Changing the account's default in the
+  dashboard does not affect us.
+- Amounts are always read from the `offer` row server-side. The browser never
+  sends a price, and the webhook refuses to enroll if `amount_total` does not
+  match what we quoted.
+- Card only, deliberately: no ACH, which keeps the whole
+  `async_payment_succeeded/failed` branch of the state machine out of existence.
+- Rotating either secret is just an `.env` edit and `systemctl restart rp2`.
+
 ## Restoring from Litestream
 
 Test this before you open applications.

@@ -31,3 +31,12 @@ frontend/dist/
 # Playwright
 test-results/
 playwright-report/
+
+# Exported applicant data — real names, essays, and contact details.
+# export-applications and the offers template both write these.
+*.xlsx
+*.csv
+!backend/test/**/*.csv
+
+# Local scratch
+resume.sh

@@ -253,15 +253,15 @@ function Admissions() {
 			</>,
 		],
 		[
-			"Week of August 28",
+			"September 5",
 			<>
-				First-round offers go out to priority applicants, with course placement,
+				First-round offers are expected to go out, with course placement,
 				meeting time, and financial-aid decision. Late applications continue to
 				be reviewed as they arrive.
 			</>,
 		],
 		[
-			"September",
+			"Mid-September",
 			<>
 				Families confirm enrollment; students get added to the course page,
 				Discord, and Gradescope. If seats remain, we go to the waitlist and late

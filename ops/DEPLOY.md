@@ -236,7 +236,8 @@ webhook secret is the most common way to get this wrong.
 *Developers → API keys*
 
 Copy the **Secret key** (`sk_live_…`; you have to click to reveal it). That is
-`STRIPE_SECRET_KEY`.
+`STRIPE_SECRET_KEY`. Restricted keys (`rk_live_…`) are accepted there too, and
+are the better choice — see below.
 
 Optionally, prefer a **restricted key** — *Create restricted key*, grant only
 **Checkout Sessions: write**, and leave everything else at None. That is all

@@ -29,7 +29,13 @@ const Env = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
-  STRIPE_SECRET_KEY: z.string().startsWith('sk_').optional(),
+  // Accepts a standard secret key (sk_) or a restricted key (rk_). Restricted
+  // keys are the better choice here — this app only needs Checkout Sessions:
+  // write — so rejecting them would push you toward a more privileged key.
+  STRIPE_SECRET_KEY: z
+    .string()
+    .regex(/^(sk|rk)_/, 'must be a Stripe secret (sk_) or restricted (rk_) key')
+    .optional(),
   STRIPE_WEBHOOK_SECRET: z.string().startsWith('whsec_').optional(),
 }).superRefine((v, ctx) => {
   if (v.PAYMENTS_ENABLED && !v.STRIPE_SECRET_KEY) {

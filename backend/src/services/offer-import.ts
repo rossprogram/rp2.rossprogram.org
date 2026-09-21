@@ -1,10 +1,12 @@
 import {
   ADMIN_SETTABLE_STATUSES,
   ApplicationStatus as ApplicationStatusEnum,
+  DERIVED_STATUSES,
   FAMILY_OWNED_STATUSES,
   IMPORT_MAX_ROWS,
   OFFER_IMPORT_COLUMNS,
   TUITION_CENTS,
+  deriveStatus,
   formatCents,
   parseDeadline,
   parseMoneyToCents,
@@ -78,6 +80,8 @@ const EDITABLE_COLUMNS = OFFER_IMPORT_COLUMNS.filter((c) => c.kind === 'editable
 
 const FAMILY_OWNED = new Set<string>(FAMILY_OWNED_STATUSES);
 const ADMIN_SETTABLE = new Set<string>(ADMIN_SETTABLE_STATUSES);
+/** Statuses deriveStatus() owns, and so may rewrite without a status cell. */
+const DERIVED = new Set<string>(DERIVED_STATUSES);
 const ALL_STATUSES = new Set<string>(ApplicationStatusEnum.options);
 
 /** Statuses that carry no offer, so offer fields on such a row are a mistake. */
@@ -356,6 +360,40 @@ export function validateImport(
         issue(rowNo, 'status', 'reopening',
           `Reopening an offer that was ${cur.status}.`),
       );
+    }
+
+    /*
+     * The money can carry a family across a status boundary with no status
+     * cell in the sheet at all — a full scholarship for someone who already
+     * accepted enrolls them. publish() writes that transition, so the preview
+     * has to show it.
+     *
+     * Gated on another change existing, so an untouched template still
+     * re-imports as zero changes (roundtrip.test.ts). Rows with a paid payment
+     * are skipped: rule 14 has already rejected any money change on those, and
+     * this validator cannot see how much was paid.
+     */
+    if (
+      !('status' in fields) &&
+      changes.length > 0 &&
+      !cur.hasPaidPayments &&
+      DERIVED.has(cur.status)
+    ) {
+      const derived = deriveStatus(
+        {
+          response: cur.offer?.response ?? null,
+          amountDueCents: effective.amountDueCents,
+        },
+        0,
+      );
+      if (derived !== cur.status) {
+        changes.push({
+          field: 'status',
+          column: 'status',
+          before: cur.status,
+          after: derived,
+        });
+      }
     }
 
     const out: ImportRow = {

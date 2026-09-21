@@ -3,11 +3,13 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { read, write, utils } from 'xlsx';
 import {
+  DERIVED_STATUSES,
   IMPORT_MAX_BYTES,
   IMPORT_MAX_ROWS,
   OFFER_IMPORT_COLUMNS,
   TUITION_CENTS,
   courseLabel,
+  deriveStatus,
   csvGuard,
   questionByKey,
   formatCents,
@@ -58,20 +60,16 @@ const DATA_SHEET = 'offers';
 
 /* ==================== status derivation ==================== */
 
-type DerivableOffer = { response: 'accepted' | 'declined' | null; amountDueCents: number };
-
-/**
- * The single place these three statuses are computed. Called inside the same
+/*
+ * deriveStatus lives in @rp2/shared so the pure import validator can reach it
+ * without the database. Re-exported here because this module is where the rest
+ * of the app expects to find it, and it is still called inside the same
  * transaction as every offer or payment write.
- *
- * paidCents is the SUM of paid payments, not one payment's amount — that is
- * what makes installments and mid-flight price changes correct for free.
  */
-export function deriveStatus(o: DerivableOffer, paidCents: number): ApplicationStatus {
-  if (o.response === 'declined') return 'declined';
-  if (o.response !== 'accepted') return 'accepted';
-  return paidCents >= o.amountDueCents ? 'enrolled' : 'awaiting_payment';
-}
+export { deriveStatus };
+
+/** Statuses deriveStatus() owns; everything else is a human decision. */
+const DERIVED = new Set<string>(DERIVED_STATUSES);
 
 export function paidCentsFor(applicationId: string): number {
   const row = db
@@ -556,6 +554,41 @@ function applyRow(tx: Tx, r: ResolvedRow, importId: string, stamp: number): void
   if (status) {
     tx.update(application)
       .set({ status, decisionAt: stamp, updatedAt: stamp })
+      .where(eq(application.id, r.appId))
+      .run();
+    return;
+  }
+
+  /*
+   * No status cell moved on this row, but the money may have carried the
+   * family across a status boundary anyway: granting a full scholarship to
+   * someone who has already accepted enrolls them. Without this the offer and
+   * application.status disagree, and the family is stranded in
+   * awaiting_payment with a $0 balance that Checkout refuses to bill
+   * ('nothing_due') and a deadline that eventually expires.
+   *
+   * Only statuses deriveStatus() owns are touched — a rejection or a waitlist
+   * is an admin's decision, not a function of the amount due. An explicit
+   * status cell returns above for the same reason: the admin's intent wins,
+   * which is what keeps reopening a declined offer working.
+   *
+   * validateImport() shows this transition in the preview, so nothing written
+   * here is a surprise.
+   */
+  if (!needsOffer) return;
+
+  const current = tx
+    .select({ status: application.status })
+    .from(application)
+    .where(eq(application.id, r.appId))
+    .get();
+  if (!current || !DERIVED.has(current.status)) return;
+
+  const written = tx.select().from(offer).where(eq(offer.applicationId, r.appId)).get()!;
+  const derived = deriveStatus(written, paidCentsFor(r.appId));
+  if (derived !== current.status) {
+    tx.update(application)
+      .set({ status: derived, updatedAt: stamp })
       .where(eq(application.id, r.appId))
       .run();
   }

@@ -288,6 +288,37 @@ export const FAMILY_OWNED_STATUSES = [
   'declined',
 ] as const;
 
+/**
+ * The statuses that are a pure function of (offer.response, payments). Any
+ * other status — waitlisted, rejected, withdrawn — is a human decision, and
+ * derivation must never overwrite one.
+ */
+export const DERIVED_STATUSES = [
+  'accepted',
+  'awaiting_payment',
+  'enrolled',
+  'declined',
+] as const;
+
+export type DerivableOffer = {
+  response: 'accepted' | 'declined' | null;
+  amountDueCents: number;
+};
+
+/**
+ * The single place these four statuses are computed. Lives here, with no
+ * database in reach, so the offer service and the pure import validator agree
+ * by construction rather than by two copies of the same four lines.
+ *
+ * paidCents is the SUM of paid payments, not one payment's amount — that is
+ * what makes installments and mid-flight price changes correct for free.
+ */
+export function deriveStatus(o: DerivableOffer, paidCents: number): ApplicationStatus {
+  if (o.response === 'declined') return 'declined';
+  if (o.response !== 'accepted') return 'accepted';
+  return paidCents >= o.amountDueCents ? 'enrolled' : 'awaiting_payment';
+}
+
 export const OFFER_IMPORT_COLUMNS: readonly OfferImportColumn[] = [
   {
     key: 'app_id',

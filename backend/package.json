@@ -13,7 +13,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "grant-admin": "tsx src/scripts/grant-admin.ts",
-    "export-applications": "tsx src/scripts/export-applications.ts"
+    "export-applications": "tsx src/scripts/export-applications.ts",
+    "refresh-status": "tsx src/scripts/refresh-status.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1091.0",

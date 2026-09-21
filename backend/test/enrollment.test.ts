@@ -986,3 +986,135 @@ describe('authorization', () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+/*
+ * Regression, from a real family in September 2026: they accepted a $1,500
+ * offer, then an import granted them a full scholarship. The offer went to
+ * $0 but application.status stayed awaiting_payment, because applyRow() only
+ * wrote a status when the sheet carried a status cell. They could not pay
+ * (Checkout refuses a $0 balance), could not enroll, and did not appear in the
+ * enrolled count — while their seat and breakout group were already assigned.
+ */
+describe('a money change re-derives status', () => {
+  /** Publish a sheet exactly as given — unlike publishOffer(), no status cell. */
+  async function publishSheet(adminId: string, rows: Record<string, string>[]) {
+    const cookie = login(adminId);
+    const buf = sheetOf(rows);
+
+    const prev = await app.inject({
+      method: 'POST',
+      url: '/api/admin/offers/preview?filename=amend.csv',
+      headers: { 'content-type': 'application/octet-stream', cookie: `rp2_sid=${cookie}` },
+      payload: buf,
+    });
+    expect(prev.statusCode).toBe(200);
+    const { preview } = prev.json();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/offers/publish?filename=amend.csv',
+      headers: {
+        'content-type': 'application/octet-stream',
+        cookie: `rp2_sid=${cookie}`,
+        'x-import-id': nanoid(),
+        'x-file-hash': preview.fileHash,
+      },
+      payload: buf,
+    });
+    expect(res.statusCode).toBe(200);
+    return { preview, publish: res.json() };
+  }
+
+  const statusOf = () => db.select().from(schema.application).get()!.status;
+
+  it('enrolls a family whose balance a later import zeroes', async () => {
+    const s = seed();
+    await publishOffer(s);
+    await app.inject({
+      method: 'POST',
+      url: `/api/offer/${s.appId}/accept`,
+      headers: { cookie: `rp2_sid=${login(s.studentId)}` },
+    });
+    expect(statusOf()).toBe('awaiting_payment');
+
+    const { preview } = await publishSheet(s.adminId, [
+      {
+        app_id: s.appId,
+        student_email: 'student@example.com',
+        aid_amount: '1500',
+        amount_due: '0',
+      },
+    ]);
+
+    // The admin saw the transition in the preview before it was written.
+    expect(preview.changedRows[0].changes).toContainEqual({
+      field: 'status',
+      column: 'status',
+      before: 'awaiting_payment',
+      after: 'enrolled',
+    });
+    expect(statusOf()).toBe('enrolled');
+  });
+
+  it('leaves an enrolled family alone when only the notes change', async () => {
+    const s = seed({ amountDue: '0' });
+    await publishOffer(s);
+    await app.inject({
+      method: 'POST',
+      url: `/api/offer/${s.appId}/accept`,
+      headers: { cookie: `rp2_sid=${login(s.studentId)}` },
+    });
+    expect(statusOf()).toBe('enrolled');
+
+    const { preview } = await publishSheet(s.adminId, [
+      { app_id: s.appId, student_email: 'student@example.com', notes: 'Bring a notebook.' },
+    ]);
+
+    expect(preview.changedRows[0].changes.map((c: { field: string }) => c.field)).toEqual([
+      'notes',
+    ]);
+    expect(statusOf()).toBe('enrolled');
+  });
+
+  /*
+   * The admin's own status cell still wins. Derivation would read the stale
+   * response and push a reopened offer straight back to declined.
+   */
+  it('does not undo an admin reopening a declined offer', async () => {
+    const s = seed({ amountDue: '0' });
+    await publishOffer(s);
+    await app.inject({
+      method: 'POST',
+      url: `/api/offer/${s.appId}/decline`,
+      headers: { cookie: `rp2_sid=${login(s.studentId)}` },
+    });
+    expect(statusOf()).toBe('declined');
+
+    await publishSheet(s.adminId, [
+      {
+        app_id: s.appId,
+        student_email: 'student@example.com',
+        status: 'accepted',
+        course: 'topology',
+        aid_amount: '750',
+        amount_due: '750',
+      },
+    ]);
+    expect(statusOf()).toBe('accepted');
+  });
+
+  it('keeps a non-payer rejection rejected', async () => {
+    const s = seed();
+    await publishOffer(s);
+    await app.inject({
+      method: 'POST',
+      url: `/api/offer/${s.appId}/accept`,
+      headers: { cookie: `rp2_sid=${login(s.studentId)}` },
+    });
+
+    await publishSheet(s.adminId, [
+      { app_id: s.appId, student_email: 'student@example.com', status: 'rejected' },
+    ]);
+    expect(statusOf()).toBe('rejected');
+  });
+});

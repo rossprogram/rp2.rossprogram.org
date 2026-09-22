@@ -204,7 +204,22 @@ export function AgreementPanel({
   onResendGuardian,
   resendState = 'idle',
 }: Props) {
-  const [open, setOpen] = useState<string | null>(env.mine[0]?.document ?? null);
+  /*
+   * Which document is expanded.
+   *
+   * `null` means "follow the work": show whatever this viewer still owes,
+   * recomputed on every render, so signing one document opens the next
+   * instead of leaving the finished one open with the remaining one collapsed
+   * below a screenful of text. A real guardian stopped there — she signed the
+   * Code of Conduct, saw a signed confirmation, and never opened the second
+   * document. Only an explicit click pins a choice, and finishing that
+   * document releases the pin.
+   */
+  const [pinned, setPinned] = useState<string | null>(null);
+  const nextOwed = env.mine[0]?.document ?? null;
+  const stillOwed = (key: string) => env.mine.some((o) => o.document === key);
+  const open = pinned && (stillOwed(pinned) || pinned === nextOwed) ? pinned : nextOwed;
+  const setOpen = (key: string | null) => setPinned(key);
   const other = otherPartyLabel(env.viewer, env.studentName);
 
   return (

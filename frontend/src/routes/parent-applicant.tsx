@@ -73,13 +73,23 @@ function GuardianApplicantPage() {
   const displayName = applicant.applicantName || applicant.applicantEmail;
   const locked = applicant.status !== 'draft' && applicant.status !== 'awaiting_guardian';
 
+  /*
+   * Once the application stage is over, its tasks are dead controls: consent
+   * has been given, aid has been decided, and "Complete my part" completes
+   * nothing. Leaving them on screen is not merely untidy — a guardian signing
+   * the program agreements scrolled past the finished Code of Conduct, found
+   * the application's empty "Type your full name" box below it, and stopped.
+   * Two signature forms on one page, only one of them live, is a trap.
+   */
+  const applicationStageOver = locked;
+
   return (
     <Prose>
       <p className="smallcaps text-accent mb-6">Parent portal</p>
       <h1 className="mb-2">{displayName}</h1>
       <p className="text-muted mb-10">
-        You&rsquo;re signing on behalf of <em>{displayName}</em>. Complete the
-        two tasks below.
+        You&rsquo;re signing on behalf of <em>{displayName}</em>.
+        {applicationStageOver ? '' : ' Complete the two tasks below.'}
       </p>
 
       {/* Renders nothing until there is an offer the family has been told about. */}
@@ -88,35 +98,39 @@ function GuardianApplicantPage() {
       {/* Likewise: nothing to agree to until there is a place to agree about. */}
       <GuardianAgreements appId={appId} />
 
-      <ProgramFacts />
+      {applicationStageOver ? null : (
+        <>
+          <ProgramFacts />
 
-      <SignatureBlock
-        appId={appId}
-        initial={applicant.guardianSignature}
-        disabled={locked}
-        onSaved={() => qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] })}
-      />
+          <SignatureBlock
+            appId={appId}
+            initial={applicant.guardianSignature}
+            disabled={locked}
+            onSaved={() => qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] })}
+          />
 
-      <AidBlock
-        appId={appId}
-        initialLevel={applicant.aidLevel}
-        files={files}
-        disabled={locked}
-        onChanged={() => qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] })}
-      />
+          <AidBlock
+            appId={appId}
+            initialLevel={applicant.aidLevel}
+            files={files}
+            disabled={locked}
+            onChanged={() => qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] })}
+          />
 
-      <hr />
+          <hr />
 
-      <CompleteBlock
-        appId={appId}
-        canComplete={applicant.taskComplete && !locked}
-        alreadyDone={applicant.guardianSubmittedAt !== null}
-        onDone={() => {
-          qc.invalidateQueries({ queryKey: ['parent', 'me'] });
-          qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] });
-          navigate({ to: '/parent' });
-        }}
-      />
+          <CompleteBlock
+            appId={appId}
+            canComplete={applicant.taskComplete && !locked}
+            alreadyDone={applicant.guardianSubmittedAt !== null}
+            onDone={() => {
+              qc.invalidateQueries({ queryKey: ['parent', 'me'] });
+              qc.invalidateQueries({ queryKey: ['parent', 'applicant', appId] });
+              navigate({ to: '/parent' });
+            }}
+          />
+        </>
+      )}
     </Prose>
   );
 }

@@ -352,6 +352,78 @@ describe('who still owes a signature', () => {
   });
 });
 
+/*
+ * Answers are tidied on the way in.
+ *
+ * The timezone box is free text with a datalist, and twelve of 705 stored
+ * answers were not real zones — two of them belonging to enrolled students,
+ * where an unusable zone means we cannot say what time their class is.
+ */
+describe('timezone normalisation on save', () => {
+  async function save(userId: string, timezone: string) {
+    return app.inject({
+      method: 'PATCH',
+      url: '/api/application/me/responses',
+      headers: { cookie: `rp2_sid=${login(userId)}` },
+      payload: { responses: { student_timezone: timezone } },
+    });
+  }
+
+  function stored(appId: string): string | null {
+    const row = db
+      .select()
+      .from(schema.applicationResponse)
+      .all()
+      .find((r) => r.applicationId === appId && r.questionKey === 'student_timezone');
+    if (!row) return null;
+    return JSON.parse(row.value) as string;
+  }
+
+  it('canonicalises a repairable answer', async () => {
+    const s = seed({ status: 'draft' });
+    for (const [typed, expected] of [
+      ['America/Vancouver ', 'America/Vancouver'],
+      ['America/Los Angeles', 'America/Los_Angeles'],
+      ['Asia/SingaporeSingapore', 'Asia/Singapore'],
+      ['Shanghai', 'Asia/Shanghai'],
+      ['america/new_york', 'America/New_York'],
+    ] as const) {
+      const res = await save(s.studentId, typed);
+      expect(res.statusCode).toBe(200);
+      expect(stored(s.appId)).toBe(expected);
+    }
+  });
+
+  /*
+   * The field promises applicants "we'll follow up if we can't find a match",
+   * so an answer we cannot repair is kept rather than refused. Blocking a
+   * fifteen-year-old's application on a text box they cannot satisfy is worse
+   * than storing a value a human has to look at.
+   */
+  it('keeps an unrepairable answer instead of rejecting it', async () => {
+    const s = seed({ status: 'draft' });
+    const res = await save(s.studentId, 'Asia/Beijing');
+    expect(res.statusCode).toBe(200);
+    expect(stored(s.appId)).toBe('Asia/Beijing');
+  });
+
+  it('leaves other answers alone', async () => {
+    const s = seed({ status: 'draft' });
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/application/me/responses',
+      headers: { cookie: `rp2_sid=${login(s.studentId)}` },
+      payload: { responses: { student_school: '  Some School  ' } },
+    });
+    const row = db
+      .select()
+      .from(schema.applicationResponse)
+      .all()
+      .find((r) => r.questionKey === 'student_school');
+    expect(JSON.parse(row!.value)).toBe('  Some School  ');
+  });
+});
+
 describe('the clearance gate', () => {
   it('needs enrollment as well as signatures', async () => {
     // Enrolled on paper, but with a balance outstanding.

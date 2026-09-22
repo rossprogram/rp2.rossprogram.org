@@ -11,7 +11,7 @@ import {
   user,
   userRole,
 } from '../db/schema.js';
-import type { ApplicationStatus } from '@rp2/shared';
+import { normalizeTimeZone, type ApplicationStatus } from '@rp2/shared';
 import { requestGuardianInvite } from '../auth/magic-link.js';
 
 function nowSeconds(): number {
@@ -33,6 +33,27 @@ const PROFILE_KEYS = {
 } as const satisfies Record<string, keyof typeof applicantProfile.$inferInsert>;
 
 type ProfileUpdate = Partial<Record<(typeof PROFILE_KEYS)[keyof typeof PROFILE_KEYS], string>>;
+
+/**
+ * Tidy an answer on the way in, where tidying it is unambiguous.
+ *
+ * Only the timezone question needs this today. It is a free-text box with a
+ * datalist of suggestions, and twelve of 705 stored answers were not real
+ * zones: 'America/Los Angeles', 'Shanghai', 'America/Vancouver ', and an
+ * 'Asia/SingaporeSingapore' that is what a datalist does when it appends to
+ * what was already typed. Two of those belonged to enrolled students, where
+ * an unusable zone means we cannot say what time their class is for them.
+ *
+ * Deliberately NOT a rejection. The field tells applicants "we'll follow up
+ * if we can't find a match", and a fifteen-year-old should not be blocked
+ * from their application by a text box they cannot satisfy. So an answer we
+ * can repair is repaired and echoed back to them in canonical form; an answer
+ * we cannot is stored as typed, flagged in the UI, and left for a person.
+ */
+function coerceAnswer(key: string, value: unknown): unknown {
+  if (key !== 'student_timezone' || typeof value !== 'string') return value;
+  return normalizeTimeZone(value) ?? value.trim();
+}
 
 export function getOrCreateApplication(userId: string): {
   id: string;
@@ -141,7 +162,8 @@ export async function upsertResponses(
   const profileUpdate: ProfileUpdate = {};
 
   db.transaction(() => {
-    for (const [key, value] of Object.entries(incoming)) {
+    for (const [key, rawValue] of Object.entries(incoming)) {
+      const value = coerceAnswer(key, rawValue);
       const serialized = JSON.stringify(value ?? null);
       db.insert(applicationResponse)
         .values({

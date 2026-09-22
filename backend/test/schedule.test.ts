@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   PROGRAM_TIMEZONE,
+  normalizeTimeZone,
   TERM_START,
   addDays,
   formatScheduleString,
@@ -248,5 +249,77 @@ describe('date helpers', () => {
   it('knows the term anchors', () => {
     expect(weekdayOf(TERM_START)).toBe(0); // Sunday
     expect(weekdayOf('2026-12-12')).toBe(6); // Saturday
+  });
+});
+
+
+/*
+ * Normalising what applicants typed.
+ *
+ * Every input below is a real stored answer. The timezone question is a
+ * free-text box with a datalist, so 12 of 705 answers were not usable zones.
+ */
+describe('normalizeTimeZone', () => {
+  it('passes a good zone through unchanged', () => {
+    expect(normalizeTimeZone('America/New_York')).toBe('America/New_York');
+    expect(normalizeTimeZone('Asia/Singapore')).toBe('Asia/Singapore');
+  });
+
+  it('fixes stray whitespace', () => {
+    expect(normalizeTimeZone('America/Vancouver ')).toBe('America/Vancouver');
+    expect(normalizeTimeZone('  Europe/London  ')).toBe('Europe/London');
+  });
+
+  it('fixes casing', () => {
+    expect(normalizeTimeZone('america/new_york')).toBe('America/New_York');
+    expect(normalizeTimeZone('ASIA/SINGAPORE')).toBe('Asia/Singapore');
+  });
+
+  it('fixes a space where the zone has an underscore', () => {
+    expect(normalizeTimeZone('America/Los Angeles')).toBe('America/Los_Angeles');
+    expect(normalizeTimeZone('America/New York')).toBe('America/New_York');
+  });
+
+  /* What a datalist autocomplete does when it appends to what was typed. */
+  it('fixes a suggestion appended to a complete zone', () => {
+    expect(normalizeTimeZone('Asia/SingaporeSingapore')).toBe('Asia/Singapore');
+  });
+
+  it('resolves a bare city when exactly one zone ends with it', () => {
+    expect(normalizeTimeZone('Shanghai')).toBe('Asia/Shanghai');
+    expect(normalizeTimeZone('Karachi')).toBe('Asia/Karachi');
+  });
+
+  /*
+   * The ones it must NOT guess. 'Asia/Beijing' really means Asia/Shanghai,
+   * but that is a fact about China's timezone policy, not a string operation
+   * — and a normaliser that starts inferring geography will eventually infer
+   * it wrong about a real child.
+   */
+  it('refuses to guess', () => {
+    for (const bad of [
+      'Asia/Beijing',
+      'Asian/Shenzhen',
+      'Africa/Giza',
+      'america/north carolina (EST)',
+      '',
+      '   ',
+      null,
+      undefined,
+    ]) {
+      expect(normalizeTimeZone(bad)).toBeNull();
+    }
+  });
+
+  it('never returns something Intl would reject', () => {
+    const inputs = [
+      'America/New_York', 'America/Vancouver ', 'america/new_york',
+      'America/Los Angeles', 'Asia/SingaporeSingapore', 'Shanghai', 'Karachi',
+      'Asia/Beijing', 'nonsense', '',
+    ];
+    for (const i of inputs) {
+      const out = normalizeTimeZone(i);
+      if (out !== null) expect(isValidTimeZone(out)).toBe(true);
+    }
   });
 });

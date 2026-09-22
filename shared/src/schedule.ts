@@ -344,3 +344,84 @@ export function occurrencesFor(
   }
   return out;
 }
+
+/* ==================== normalising what people type ==================== */
+
+/**
+ * Every IANA zone this runtime knows, or an empty list if it cannot say.
+ *
+ * `Intl.supportedValuesOf` is ES2022 and present on Node 20 and every browser
+ * we care about, but it is typed loosely enough to be worth guarding.
+ */
+function knownZones(): readonly string[] {
+  try {
+    const fn = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] })
+      .supportedValuesOf;
+    if (typeof fn === 'function') {
+      const v = fn('timeZone');
+      if (Array.isArray(v) && v.length > 0) return v;
+    }
+  } catch {
+    /* fall through to the empty list */
+  }
+  return [];
+}
+
+let zoneCache: readonly string[] | null = null;
+function zones(): readonly string[] {
+  zoneCache ??= knownZones();
+  return zoneCache;
+}
+
+/**
+ * Turn what somebody typed into a real IANA zone, or null.
+ *
+ * The timezone question is a free-text box with a datalist of suggestions, so
+ * the stored answers include 'America/Los Angeles', 'Shanghai',
+ * 'America/Vancouver ' and 'Asia/SingaporeSingapore' — that last one being
+ * what a datalist autocomplete does when it appends to what was already
+ * typed. Twelve of 705 answers were unusable.
+ *
+ * Only unambiguous repairs are made:
+ *   - whitespace and casing
+ *   - a space where the zone has an underscore
+ *   - a suggestion appended to a complete zone ('Asia/SingaporeSingapore')
+ *   - a bare city that exactly one zone ends with ('Shanghai')
+ *
+ * Anything else returns null and is left for a human. 'Asia/Beijing' is the
+ * case worth keeping in mind: the right answer is Asia/Shanghai, but that is
+ * a fact about China's timezone policy rather than a string operation, and
+ * guessing it here would set a precedent for guessing worse things.
+ */
+export function normalizeTimeZone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (trimmed === '') return null;
+
+  const all = zones();
+  // Without a zone list all we can do is trust Intl's own validation.
+  if (all.length === 0) return isValidTimeZone(trimmed) ? trimmed : null;
+
+  const exact = all.find((z) => z === trimmed);
+  if (exact) return exact;
+
+  const spaced = trimmed.replace(/\s+/g, '_');
+  const lower = spaced.toLowerCase();
+
+  const caseless = all.find((z) => z.toLowerCase() === lower);
+  if (caseless) return caseless;
+
+  // A complete zone with something appended to it.
+  const prefixed = all
+    .filter((z) => lower.startsWith(z.toLowerCase()) && lower.length > z.length)
+    .sort((a, b) => b.length - a.length)[0];
+  if (prefixed) return prefixed;
+
+  // A bare city, accepted only when exactly one zone ends with it — so
+  // 'Shanghai' resolves and anything ambiguous does not.
+  const tail = lower.split('/').pop() ?? '';
+  const byTail = all.filter((z) => (z.toLowerCase().split('/').pop() ?? '') === tail);
+  if (byTail.length === 1) return byTail[0]!;
+
+  return null;
+}

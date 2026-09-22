@@ -36,13 +36,15 @@ describe('role names', () => {
     expect(sectionRoleName('quadratic', 'QUADRATIC-2')).toBe('Quadratic-Forms-2');
     expect(sectionRoleName('ggt', 'GGT-1')).toBe('Geometric-Group-Theory-1');
     expect(sectionRoleName('cgt', 'CGT-2')).toBe('Combinatorial-Game-Theory-2');
-    expect(sectionRoleName('topology', 'TOPOLOGY-1')).toBe('Point-Set-Topology-1');
+    expect(sectionRoleName('topology', 'TOPOLOGY-1')).toBe('Topology-1');
   });
 
   it('builds a group role from the abbreviation', () => {
     expect(groupRoleName('quadratic', 'QUADRATIC-2', '3')).toBe('QF-2-Group-3');
     expect(groupRoleName('ggt', 'GGT-1', '6')).toBe('GGT-1-Group-6');
-    expect(groupRoleName('topology', 'TOPOLOGY-2', '4')).toBe('PST-2-Group-4');
+    // Topology spells its group roles out in full; the others abbreviate.
+    // Both come from the same derivation — only the constants differ.
+    expect(groupRoleName('topology', 'TOPOLOGY-2', '4')).toBe('Topology-2-Group-4');
   });
 
   /*

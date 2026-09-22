@@ -25,7 +25,7 @@ export const TUITION_CENTS = 150_000;
  * course it belongs to. See sectionRoleName()/groupRoleName() in discord.ts.
  */
 export const COURSES = [
-  { key: 'topology', label: 'Point-Set Topology', roleName: 'Point-Set-Topology', abbrev: 'PST' },
+  { key: 'topology', label: 'Point-Set Topology', roleName: 'Topology', abbrev: 'Topology' },
   { key: 'ggt', label: 'Geometric Group Theory', roleName: 'Geometric-Group-Theory', abbrev: 'GGT' },
   { key: 'cgt', label: 'Combinatorial Game Theory', roleName: 'Combinatorial-Game-Theory', abbrev: 'CGT' },
   { key: 'quadratic', label: 'Quadratic Forms', roleName: 'Quadratic-Forms', abbrev: 'QF' },

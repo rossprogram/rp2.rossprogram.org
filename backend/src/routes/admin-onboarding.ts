@@ -27,7 +27,13 @@ const RemindBody = z.object({
   dryRun: z.boolean().default(false),
 });
 
-const ReconcileBody = z.object({ dryRun: z.boolean().default(true) });
+const ReconcileBody = z.object({
+  dryRun: z.boolean().default(true),
+  /* Off by default: a role that already exists carries channel permissions a
+   * freshly created one would not. A name we cannot find is reported, not
+   * invented. */
+  allowCreate: z.boolean().default(false),
+});
 
 function documentTitle(key: string): string {
   return agreementByKey(key)?.title ?? key;
@@ -174,7 +180,10 @@ export async function registerAdminOnboardingRoutes(app: FastifyInstance): Promi
     }
 
     try {
-      const report = await reconcileAll({ dryRun: parsed.data.dryRun });
+      const report = await reconcileAll({
+        dryRun: parsed.data.dryRun,
+        allowCreate: parsed.data.allowCreate,
+      });
       return { dryRun: parsed.data.dryRun, ...report };
     } catch (err) {
       req.log.error({ err }, 'discord reconcile failed');

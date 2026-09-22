@@ -267,11 +267,11 @@ describe('roles', () => {
     const b = seed({ section: 'QUADRATIC-2', cohort: '4' });
     signEverything(b);
 
-    const result = await ensureRoles();
+    const result = await ensureRoles({ allowCreate: true });
     expect(result.created.sort()).toEqual(['QF-2-Group-3', 'QF-2-Group-4', 'Quadratic-Forms-2']);
 
     // Idempotent: a second run creates nothing.
-    const again = await ensureRoles();
+    const again = await ensureRoles({ allowCreate: true });
     expect(again.created).toEqual([]);
   });
 
@@ -300,8 +300,36 @@ describe('roles', () => {
    */
   it('provisions roles for the whole enrolled cohort, signed or not', async () => {
     seed({ courseKey: 'topology', section: 'TOPOLOGY-1', cohort: '2' }); // enrolled, unsigned
+    const result = await ensureRoles({ allowCreate: true });
+    expect(result.created.sort()).toEqual(['Topology-1', 'Topology-1-Group-2']);
+  });
+
+  /*
+   * The server is set up by hand first: roles carry channel permissions, and a
+   * duplicate created under the same name would carry none while looking
+   * identical in the member list. So a name we cannot find is reported, never
+   * invented.
+   */
+  it('does not create a role by default — it reports the mismatch', async () => {
+    const s = seed();
+    signEverything(s);
+
     const result = await ensureRoles();
-    expect(result.created.sort()).toEqual(['PST-1-Group-2', 'Point-Set-Topology-1']);
+    expect(result.created).toEqual([]);
+    expect(result.missing.sort()).toEqual(['QF-2-Group-3', 'Quadratic-Forms-2']);
+    expect(guild.calls).toEqual([]);
+    expect(db.select().from(schema.discordRole).all()).toHaveLength(0);
+  });
+
+  it('adopts every role that does exist, and reports only the rest', async () => {
+    const s = seed();
+    signEverything(s);
+    guild.roles.push({ id: 'sec', name: 'Quadratic-Forms-2', position: 5, managed: false });
+
+    const result = await ensureRoles();
+    expect(result.adopted).toEqual(['Quadratic-Forms-2']);
+    expect(result.missing).toEqual(['QF-2-Group-3']);
+    expect(result.created).toEqual([]);
   });
 
   it('ignores applications that are not enrolled at all', async () => {
@@ -318,7 +346,7 @@ describe('syncing a member', () => {
   it('joins a cleared student named and roled, in one call', async () => {
     const s = seed();
     signEverything(s);
-    await ensureRoles();
+    await ensureRoles({ allowCreate: true });
     saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
 
     const outcome = await syncMember(s.appId, { accessToken: 'access-token' });
@@ -335,7 +363,7 @@ describe('syncing a member', () => {
   it('moves roles when a later import changes the section', async () => {
     const s = seed();
     signEverything(s);
-    await ensureRoles();
+    await ensureRoles({ allowCreate: true });
     saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
     await syncMember(s.appId, { accessToken: 'access-token' });
 
@@ -344,7 +372,7 @@ describe('syncing a member', () => {
     db.update(schema.offer)
       .set({ section: 'QUADRATIC-1', cohort: '5' })
       .run();
-    await ensureRoles();
+    await ensureRoles({ allowCreate: true });
     const outcome = await syncMember(s.appId);
 
     expect(outcome.status).toBe('updated');
@@ -360,7 +388,7 @@ describe('syncing a member', () => {
   it('leaves roles it does not manage alone', async () => {
     const s = seed();
     signEverything(s);
-    await ensureRoles();
+    await ensureRoles({ allowCreate: true });
     saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
     await syncMember(s.appId, { accessToken: 'access-token' });
 
@@ -373,7 +401,7 @@ describe('syncing a member', () => {
   it('is a no-op when everything already matches', async () => {
     const s = seed();
     signEverything(s);
-    await ensureRoles();
+    await ensureRoles({ allowCreate: true });
     saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
     await syncMember(s.appId, { accessToken: 'access-token' });
 
@@ -384,7 +412,7 @@ describe('syncing a member', () => {
   it('refuses to sync a student who is no longer cleared', async () => {
     const s = seed();
     signEverything(s);
-    await ensureRoles();
+    await ensureRoles({ allowCreate: true });
     saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
 
     db.delete(schema.agreementSignature).run();
@@ -417,7 +445,7 @@ describe('revocation', () => {
   it('removes a dismissed student from the guild entirely', async () => {
     const s = seed();
     signEverything(s);
-    await ensureRoles();
+    await ensureRoles({ allowCreate: true });
     saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
     await syncMember(s.appId, { accessToken: 'access-token' });
     expect(guild.members.has('discord-ada')).toBe(true);
@@ -442,7 +470,9 @@ describe('reconcile', () => {
     const report = await reconcileAll({ dryRun: true });
     expect(report.cleared).toBe(1);
     expect(report.linked).toBe(1);
-    expect(report.rolesCreated).toContain('Quadratic-Forms-2');
+    // With creation off by default, an absent role is reported, not planned.
+    expect(report.rolesCreated).toEqual([]);
+    expect(report.rolesMissing).toContain('Quadratic-Forms-2');
     // Nothing was actually created.
     expect(guild.calls).toEqual([]);
     expect(db.select().from(schema.discordRole).all()).toHaveLength(0);

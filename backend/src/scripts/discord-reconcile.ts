@@ -9,9 +9,16 @@
  * Defaults to a DRY RUN. The live form can add people to and remove people
  * from a server full of minors, so making that an explicit flag is the point.
  *
+ * It ADOPTS roles that already exist by name and never creates one unless
+ * asked. A role in a configured server carries channel permissions; a fresh
+ * one with the same name carries none, and the two are hard to tell apart in
+ * the member list. So a name we cannot find is reported as a mismatch to be
+ * fixed by a human, not papered over.
+ *
  * Usage:
- *   pnpm --filter @rp2/backend discord-reconcile              # dry run
- *   pnpm --filter @rp2/backend discord-reconcile -- --apply   # for real
+ *   pnpm --filter @rp2/backend discord-reconcile                     # dry run
+ *   pnpm --filter @rp2/backend discord-reconcile -- --apply          # for real
+ *   pnpm --filter @rp2/backend discord-reconcile -- --create-missing # also create absent roles
  */
 
 import { discordEnabled } from '../integrations/discord/index.js';
@@ -19,22 +26,36 @@ import { reconcileAll } from '../services/discord-sync.js';
 
 async function main(): Promise<void> {
   const apply = process.argv.includes('--apply');
+  const allowCreate = process.argv.includes('--create-missing');
 
   if (!discordEnabled()) {
     console.error('DISCORD_ENABLED is false — nothing to do.');
     process.exit(2);
   }
 
-  const report = await reconcileAll({ dryRun: !apply });
+  const report = await reconcileAll({ dryRun: !apply, allowCreate });
 
   console.log(apply ? 'Applied:' : 'Dry run (pass --apply to write):');
   console.log(`  cleared students: ${report.cleared}`);
   console.log(`  with Discord linked: ${report.linked}`);
-  console.log(`  roles to create: ${report.rolesCreated.length}`);
-  for (const name of report.rolesCreated) console.log(`    + ${name}`);
+
   if (report.rolesAdopted.length > 0) {
-    console.log(`  existing roles adopted: ${report.rolesAdopted.length}`);
-    for (const name of report.rolesAdopted) console.log(`    = ${name}`);
+    console.log(`  existing roles matched: ${report.rolesAdopted.length}`);
+    for (const name of report.rolesAdopted.sort()) console.log(`    = ${name}`);
+  }
+  if (report.rolesCreated.length > 0) {
+    console.log(`  roles created: ${report.rolesCreated.length}`);
+    for (const name of report.rolesCreated.sort()) console.log(`    + ${name}`);
+  }
+  if (report.rolesMissing.length > 0) {
+    console.log('');
+    console.log(`  !! ${report.rolesMissing.length} role(s) do not exist in the guild:`);
+    for (const name of report.rolesMissing.sort()) console.log(`    ? ${name}`);
+    console.log('');
+    console.log('  These names come from COURSES in shared/src/offers.ts.');
+    console.log('  Either the roles are named differently in Discord (fix the');
+    console.log('  constants), or they genuinely need creating (--create-missing).');
+    console.log('  Nothing was created.');
   }
 
   const byOutcome = new Map<string, number>();
@@ -47,6 +68,10 @@ async function main(): Promise<void> {
   for (const [key, count] of [...byOutcome].sort()) {
     console.log(`    ${key}: ${count}`);
   }
+
+  // A mismatch means some students cannot be placed at all, so fail loudly
+  // enough that a deploy script or a human notices.
+  if (report.rolesMissing.length > 0) process.exitCode = 1;
 }
 
 main().catch((err: unknown) => {

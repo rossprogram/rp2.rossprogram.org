@@ -83,9 +83,13 @@ export function desiredStateFor(applicationId: string): DesiredState | null {
  * created `Quadratic-Forms-2` by hand adopts that role rather than making a
  * confusing duplicate. After that, ids are identity.
  */
-export async function ensureRoles(opts: { dryRun?: boolean } = {}): Promise<{
+export async function ensureRoles(
+  opts: { dryRun?: boolean; allowCreate?: boolean } = {},
+): Promise<{
   created: string[];
   adopted: string[];
+  /** Wanted, absent from the guild, and NOT created. A naming mismatch. */
+  missing: string[];
   existing: number;
 }> {
   const wanted = new Map<string, { kind: 'section' | 'group'; key: string; name: string }>();
@@ -98,9 +102,9 @@ export async function ensureRoles(opts: { dryRun?: boolean } = {}): Promise<{
   const known = db.select().from(discordRole).all();
   const knownBy = new Set(known.map((r) => `${r.kind}:${r.key}`));
 
-  const missing = [...wanted.values()].filter((r) => !knownBy.has(`${r.kind}:${r.key}`));
-  if (missing.length === 0) {
-    return { created: [], adopted: [], existing: known.length };
+  const unrecorded = [...wanted.values()].filter((r) => !knownBy.has(`${r.kind}:${r.key}`));
+  if (unrecorded.length === 0) {
+    return { created: [], adopted: [], missing: [], existing: known.length };
   }
 
   const guildRoles = await listGuildRoles();
@@ -108,12 +112,28 @@ export async function ensureRoles(opts: { dryRun?: boolean } = {}): Promise<{
 
   const created: string[] = [];
   const adopted: string[] = [];
+  const missing: string[] = [];
 
-  for (const want of missing) {
+  for (const want of unrecorded) {
     const existing = byName.get(want.name.toLowerCase());
     if (existing) {
       adopted.push(want.name);
       if (!opts.dryRun) recordRole(want, existing.id);
+      continue;
+    }
+
+    /*
+     * The role does not exist under the name we derive.
+     *
+     * Creating one is almost always the WRONG repair: the roles in a set-up
+     * server already carry channel permissions, and a fresh role with the
+     * same purpose but no permissions looks identical in the member list
+     * while granting access to nothing. The likelier truth is that our
+     * naming constants disagree with what a human typed — so say so, and
+     * let a person decide. Creation is opt-in.
+     */
+    if (!opts.allowCreate) {
+      missing.push(want.name);
       continue;
     }
     created.push(want.name);
@@ -123,7 +143,7 @@ export async function ensureRoles(opts: { dryRun?: boolean } = {}): Promise<{
     }
   }
 
-  return { created, adopted, existing: known.length };
+  return { created, adopted, missing, existing: known.length };
 }
 
 function recordRole(
@@ -255,6 +275,8 @@ export type ReconcileReport = {
   linked: number;
   rolesCreated: string[];
   rolesAdopted: string[];
+  /** Derived names with no matching role in the guild — a naming mismatch. */
+  rolesMissing: string[];
   results: { applicationId: string; outcome: SyncOutcome }[];
   /** Members in the guild the bot manages roles for but cannot place. */
   orphans: string[];
@@ -267,7 +289,9 @@ export type ReconcileReport = {
  * to reason about — and to rate-limit — than a burst, and this runs at human
  * cadence from an admin button.
  */
-export async function reconcileAll(opts: { dryRun?: boolean } = {}): Promise<ReconcileReport> {
+export async function reconcileAll(
+  opts: { dryRun?: boolean; allowCreate?: boolean } = {},
+): Promise<ReconcileReport> {
   const roles = await ensureRoles(opts);
 
   const appIds = enrolledApplicationIds();
@@ -306,6 +330,7 @@ export async function reconcileAll(opts: { dryRun?: boolean } = {}): Promise<Rec
     linked,
     rolesCreated: roles.created,
     rolesAdopted: roles.adopted,
+    rolesMissing: roles.missing,
     results,
     orphans: [],
   };

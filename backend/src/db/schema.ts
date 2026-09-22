@@ -545,3 +545,32 @@ export const sessionOccurrence = sqliteTable(
     byDate: index('occurrence_date_idx').on(t.date),
   }),
 );
+
+/*
+ * Who teaches what.
+ *
+ * `user_role` says someone is a mentor; this says which sections. Both are
+ * needed: the role gates the mentor portal at all, and these rows decide
+ * which students a given mentor may see. One mentor can hold two sections
+ * (Blaze holds GGT-2 and TOPOLOGY-2), and a section can have a mentor plus
+ * course assistants, so this is a join table rather than a column.
+ */
+export const sectionStaff = sqliteTable(
+  'section_staff',
+  {
+    sectionId: text('section_id')
+      .notNull()
+      .references(() => section.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // Mirrors user_role's vocabulary: the mentor leads the section, an
+    // assistant grades and monitors breakout rooms.
+    role: text('role', { enum: ['mentor', 'assistant'] }).notNull(),
+    assignedAt: integer('assigned_at').notNull().default(nowSql),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.sectionId, t.userId] }),
+    byUser: index('section_staff_user_idx').on(t.userId),
+  }),
+);

@@ -57,6 +57,13 @@
       "when": 1790085869264,
       "tag": "0007_sections_and_occurrences",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790088325127,
+      "tag": "0008_section_staff",
+      "breakpoints": true
     }
   ]
 }

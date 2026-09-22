@@ -21,6 +21,10 @@ function AdminOffersPage() {
         <Link to="/admin" className="text-ink">
           Back to applications
         </Link>
+        {' · '}
+        <Link to="/admin/onboarding" className="text-ink">
+          Onboarding
+        </Link>
       </p>
       <OfferImport />
     </Prose>

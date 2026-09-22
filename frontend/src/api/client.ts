@@ -556,3 +556,59 @@ export function signGuardianAgreement(appId: string, document: string, payload: 
     payload,
   );
 }
+
+/* ==================== admin: onboarding ==================== */
+
+export type OnboardingFamily = {
+  applicationId: string;
+  studentName: string | null;
+  studentEmail: string;
+  guardianEmail: string | null;
+  guardianAccepted: boolean;
+  outstanding: Outstanding[];
+};
+
+export type OnboardingList = {
+  documents: { key: string; title: string; version: string }[];
+  outstandingCount: number;
+  /** Families whose guardian has never accepted their portal invite. */
+  neverLoggedIn: number;
+  families: OnboardingFamily[];
+};
+
+export type RemindPlanned = {
+  to: string;
+  kind: 'student' | 'guardian' | 'guardian_invite';
+};
+
+export type RemindResult =
+  | { dryRun: true; families: number; planned: RemindPlanned[] }
+  | {
+      dryRun: false;
+      families: number;
+      sent: number;
+      skipped: number;
+      recipients: string[];
+    };
+
+export type ReconcileResult = {
+  dryRun: boolean;
+  cleared: number;
+  linked: number;
+  rolesCreated: string[];
+  rolesAdopted: string[];
+  rolesMissing: string[];
+  results: { applicationId: string; outcome: Record<string, unknown> }[];
+};
+
+export function fetchOnboarding() {
+  return api.get<OnboardingList>('/api/admin/agreements');
+}
+
+export function sendReminders(body: { applicationIds?: string[]; dryRun: boolean }) {
+  return api.post<RemindResult>('/api/admin/agreements/remind', body);
+}
+
+export function reconcileDiscord(body: { dryRun: boolean; allowCreate?: boolean }) {
+  return api.post<ReconcileResult>('/api/admin/discord/reconcile', body);
+}

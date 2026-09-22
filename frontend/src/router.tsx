@@ -20,6 +20,7 @@ import { parentApplicantRoute } from './routes/parent-applicant';
 import { adminIndexRoute } from './routes/admin';
 import { adminApplicationRoute } from './routes/admin-application';
 import { adminOffersRoute } from './routes/admin-offers';
+import { adminOnboardingRoute } from './routes/admin-onboarding';
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -41,4 +42,5 @@ export const routeTree = rootRoute.addChildren([
   adminIndexRoute,
   adminApplicationRoute,
   adminOffersRoute,
+  adminOnboardingRoute,
 ]);

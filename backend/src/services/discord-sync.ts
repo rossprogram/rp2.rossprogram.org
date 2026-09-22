@@ -174,6 +174,24 @@ function roleIdsFor(desired: DesiredState): string[] | null {
   return ids;
 }
 
+/**
+ * Role ids read live from the guild, without recording anything.
+ *
+ * Only a dry run needs this: it must reach the same verdict as a real sync
+ * while leaving the database untouched.
+ */
+async function resolveRoleIdsFromGuild(desired: DesiredState): Promise<string[] | null> {
+  const guildRoles = await listGuildRoles();
+  const byName = new Map(guildRoles.map((r) => [r.name.toLowerCase(), r.id]));
+  const ids: string[] = [];
+  for (const want of desired.roleKeys) {
+    const id = byName.get(want.name.toLowerCase());
+    if (!id) return null;
+    ids.push(id);
+  }
+  return ids;
+}
+
 /** Every role id the bot manages — used to tell "ours" from "theirs". */
 function managedRoleIds(): Set<string> {
   return new Set(db.select({ roleId: discordRole.roleId }).from(discordRole).all().map((r) => r.roleId));
@@ -194,8 +212,13 @@ export type SyncOutcome =
  */
 export async function syncMember(
   applicationId: string,
-  opts: { accessToken?: string } = {},
+  opts: { accessToken?: string; dryRun?: boolean } = {},
 ): Promise<SyncOutcome> {
+  // A dry run asks Discord the same questions and reaches the same verdict —
+  // it simply does not write. Preview and action share this one path on
+  // purpose: when they were separate, the preview reported "unchanged" for
+  // nine students who were not in the guild at all.
+  const dry = opts.dryRun === true;
   if (!isCleared(applicationId)) {
     return { status: 'skipped', reason: 'not_cleared' };
   }
@@ -217,8 +240,10 @@ export async function syncMember(
      * Adopts by name only — never creates. A name we cannot find is still a
      * mismatch for a human to resolve.
      */
-    await ensureRoles();
+    await ensureRoles({ dryRun: dry });
     roleIds = roleIdsFor(desired);
+    // A dry run records nothing, so ask the guild directly for this run.
+    if (!roleIds && dry) roleIds = await resolveRoleIdsFromGuild(desired);
   }
   if (!roleIds) return { status: 'skipped', reason: 'roles_not_created' };
 
@@ -227,7 +252,11 @@ export async function syncMember(
   // Not in the guild yet: one call joins them named and roled. Needs the
   // OAuth access token, which we only hold during the link callback.
   if (!member) {
+    // Adding somebody needs their OAuth token, which exists only during the
+    // link callback. Outside it, the honest answer is that they have to click
+    // again — not that everything is fine.
     if (!opts.accessToken) return { status: 'skipped', reason: 'not_a_member' };
+    if (dry) return { status: 'joined' };
     await addGuildMember({
       discordUserId: link.discordUserId,
       accessToken: opts.accessToken,
@@ -241,7 +270,7 @@ export async function syncMember(
   const changes: string[] = [];
 
   if (member.nick !== desired.nickname) {
-    await setMemberNickname(link.discordUserId, desired.nickname);
+    if (!dry) await setMemberNickname(link.discordUserId, desired.nickname);
     changes.push(`nickname -> ${desired.nickname}`);
   }
 
@@ -249,7 +278,7 @@ export async function syncMember(
   const has = new Set(member.roleIds);
   for (const id of roleIds) {
     if (!has.has(id)) {
-      await addMemberRole(link.discordUserId, id);
+      if (!dry) await addMemberRole(link.discordUserId, id);
       changes.push(`+role ${id}`);
     }
   }
@@ -257,12 +286,12 @@ export async function syncMember(
   // someone picked up, is none of the bot's business.
   for (const id of member.roleIds) {
     if (managed.has(id) && !roleIds.includes(id)) {
-      await removeMemberRole(link.discordUserId, id);
+      if (!dry) await removeMemberRole(link.discordUserId, id);
       changes.push(`-role ${id}`);
     }
   }
 
-  markSynced(link.userId, { joined: false });
+  if (!dry) markSynced(link.userId, { joined: false });
   return changes.length > 0 ? { status: 'updated', changes } : { status: 'unchanged' };
 }
 
@@ -317,24 +346,15 @@ export async function reconcileAll(
   for (const id of cleared) {
     const link = linkForApplication(id);
     if (link) linked += 1;
-    if (opts.dryRun) {
-      const desired = desiredStateFor(id);
+    try {
       results.push({
         applicationId: id,
-        outcome: desired
-          ? link
-            ? { status: 'unchanged' }
-            : { status: 'skipped', reason: 'no_discord_link' }
-          : { status: 'skipped', reason: 'no_placement' },
+        outcome: await syncMember(id, { dryRun: opts.dryRun === true }),
       });
-      continue;
-    }
-    try {
-      results.push({ applicationId: id, outcome: await syncMember(id) });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const link2 = linkForApplication(id);
-      if (link2) markSyncError(link2.userId, message);
+      if (link2 && !opts.dryRun) markSyncError(link2.userId, message);
       results.push({ applicationId: id, outcome: { status: 'skipped', reason: message } });
     }
   }

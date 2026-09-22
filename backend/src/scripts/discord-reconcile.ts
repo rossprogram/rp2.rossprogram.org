@@ -69,6 +69,22 @@ async function main(): Promise<void> {
     console.log(`    ${key}: ${count}`);
   }
 
+  /*
+   * "not_a_member" means linked but absent from the guild, and no amount of
+   * reconciling fixes it: adding somebody needs their OAuth token, which only
+   * exists while they are clicking. Spell that out rather than leaving a bare
+   * count that reads like a minor skip.
+   */
+  const stranded = report.results.filter(
+    (r) => r.outcome.status === 'skipped' && r.outcome.reason === 'not_a_member',
+  );
+  if (stranded.length > 0) {
+    console.log('');
+    console.log(`  !! ${stranded.length} student(s) are linked but NOT in the guild.`);
+    console.log('     They have to click "Finish joining the server" in the portal;');
+    console.log('     re-running this cannot add them.');
+  }
+
   // A mismatch means some students cannot be placed at all, so fail loudly
   // enough that a deploy script or a human notices.
   if (report.rolesMissing.length > 0) process.exitCode = 1;

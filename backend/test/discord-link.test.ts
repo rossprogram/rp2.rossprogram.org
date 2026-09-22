@@ -513,6 +513,49 @@ describe('reconcile', () => {
     expect(db.select().from(schema.discordRole).all()).toHaveLength(0);
   });
 
+  /*
+   * The dry run's own failure on 2026-09-22: it reported "unchanged" for nine
+   * students who were not in the guild at all, because the preview had its own
+   * code path that only checked whether a link row existed. Preview and action
+   * now share one path, so the preview sees what the action would see.
+   */
+  it('reports a linked student who is not actually in the guild', async () => {
+    const s = seed();
+    signEverything(s);
+    guild.roles.push(
+      { id: 'sec', name: 'Quadratic-Forms-2', position: 5, managed: false },
+      { id: 'grp', name: 'QF-2-Group-3', position: 4, managed: false },
+    );
+    // Linked, but never added to the guild — exactly the stranded state.
+    saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
+
+    const report = await reconcileAll({ dryRun: true });
+    expect(report.linked).toBe(1);
+    expect(report.results[0]!.outcome).toEqual({ status: 'skipped', reason: 'not_a_member' });
+    // And it still wrote nothing.
+    expect(db.select().from(schema.discordRole).all()).toHaveLength(0);
+    expect(guild.calls.filter((c) => !c.startsWith('add:'))).toEqual([]);
+  });
+
+  it('reports the work a real sync would do, without doing it', async () => {
+    const s = seed();
+    signEverything(s);
+    await ensureRoles({ allowCreate: true });
+    saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
+    await syncMember(s.appId, { accessToken: 'access-token' });
+
+    // Move them, then preview: the diff should be named but not applied.
+    db.update(schema.offer).set({ section: 'QUADRATIC-1', cohort: '5' }).run();
+    await ensureRoles({ allowCreate: true });
+    const before = [...guild.members.get('discord-ada')!.roleIds];
+
+    const report = await reconcileAll({ dryRun: true });
+    const outcome = report.results[0]!.outcome as { status: string; changes?: string[] };
+    expect(outcome.status).toBe('updated');
+    expect(outcome.changes!.length).toBeGreaterThan(0);
+    expect(guild.members.get('discord-ada')!.roleIds).toEqual(before);
+  });
+
   it('counts a cleared student who has not linked as outstanding', async () => {
     const s = seed();
     signEverything(s);

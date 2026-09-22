@@ -102,10 +102,22 @@ if ! sudo systemctl is-active --quiet rp2; then
 fi
 
 echo "==> Health check"
-if curl -sfm 5 https://rp2.rossprogram.org/api/health >/dev/null; then
-  echo "   OK"
-else
-  echo "   ✗ /api/health did not respond 200" >&2
+# The backend runs from TypeScript source via tsx, so a cold start spends a few
+# seconds transpiling before it listens — longer as the source grows. A single
+# immediate probe reported failure on five consecutive successful deploys,
+# which is exactly how a real failure gets ignored. Poll instead.
+healthy=0
+for attempt in $(seq 1 30); do
+  if curl -sfm 5 https://rp2.rossprogram.org/api/health >/dev/null; then
+    echo "   OK (after ${attempt}s)"
+    healthy=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$healthy" != "1" ]]; then
+  echo "   ✗ /api/health did not respond 200 within 30s" >&2
+  sudo journalctl -u rp2 --since '1 minute ago' -o cat >&2
   exit 1
 fi
 REMOTE

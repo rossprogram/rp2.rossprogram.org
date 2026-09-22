@@ -67,6 +67,18 @@ function staffEmails(): Map<string, string> {
   return out;
 }
 
+/** portal address -> the Zoom address that person actually uses, where recorded. */
+function zoomAddressByPortal(): Map<string, string> {
+  return new Map(
+    db
+      .select({ portal: user.email, zoom: zoomAccount.zoomEmail })
+      .from(zoomAccount)
+      .innerJoin(user, eq(user.id, zoomAccount.userId))
+      .all()
+      .map((r) => [r.portal.toLowerCase(), r.zoom.toLowerCase()]),
+  );
+}
+
 function age(iso: string | null): string {
   if (!iso) return 'never';
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
@@ -99,6 +111,13 @@ async function main(): Promise<void> {
 
   const staff = staffEmails();
   const users = await listUsers('active');
+  /*
+   * Pending users have been invited and have not accepted. They hold a
+   * licence already, but Zoom answers "User does not exist" for them — so a
+   * meeting cannot be created for one, and this is a distinct, actionable
+   * state rather than an absence.
+   */
+  const pending = await listUsers('pending');
 
   const keep: { u: ZoomUser; why: string }[] = [];
   const candidates: ZoomUser[] = [];
@@ -123,10 +142,33 @@ async function main(): Promise<void> {
   }
   console.log('');
 
-  // Anyone on the portal roster who has no Zoom account yet is the other half
-  // of this picture, and the reason a section could end up unhostable.
-  const zoomEmails = new Set(users.map((u) => u.email.toLowerCase()));
-  const missing = [...staff.keys()].filter((e) => !zoomEmails.has(e));
+  const pendingEmails = new Set(pending.map((u) => u.email.toLowerCase()));
+  if (pending.length > 0) {
+    console.log(`INVITED, NOT YET ACCEPTED (${pending.length})`);
+    console.log('  Licensed already, but Zoom reports them as non-existent until they');
+    console.log('  accept — no meeting can be created for them, so provisioning waits.');
+    for (const u of pending.sort((a, b) => a.email.localeCompare(b.email))) {
+      const role = staff.get(u.email.toLowerCase());
+      console.log(`  ${u.email.padEnd(38)} ${role ?? '(not on the roster)'}`);
+    }
+    console.log('');
+  }
+
+  /*
+   * Someone on the roster with no Zoom account at all — neither active nor
+   * invited — is how a section ends up with nobody able to host it. Both
+   * their portal address and any mapped Zoom address count as present, since
+   * the two differ for at least one mentor.
+   */
+  const zoomEmails = new Set([...users, ...pending].map((u) => u.email.toLowerCase()));
+  // Present means: this address is in Zoom, or the address recorded for this
+  // person is. Blaze is a gmail address here and a Ross one there.
+  const mapped = zoomAddressByPortal();
+  const missing = [...staff.keys()].filter((e) => {
+    if (zoomEmails.has(e) || pendingEmails.has(e)) return false;
+    const alt = mapped.get(e);
+    return !(alt && zoomEmails.has(alt));
+  });
   if (missing.length > 0) {
     console.log(`MISSING FROM ZOOM (${missing.length}) — teaching a section with no Zoom account`);
     for (const e of missing.sort()) console.log(`  ${e.padEnd(38)} ${staff.get(e)}`);

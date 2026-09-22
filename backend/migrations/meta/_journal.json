@@ -50,6 +50,13 @@
       "when": 1790019132839,
       "tag": "0006_agreements_and_discord",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1790085869264,
+      "tag": "0007_sections_and_occurrences",
+      "breakpoints": true
     }
   ]
 }

@@ -467,3 +467,81 @@ export const discordRole = sqliteTable(
     kindKeyUnique: uniqueIndex('discord_role_kind_key_idx').on(t.kind, t.key),
   }),
 );
+
+/*
+ * ==================== sections and the sessions they hold ====================
+ */
+
+/*
+ * A course offered at a specific weekly time — CLAUDE.md's long-deferred
+ * `section`, finally a row because Zoom meetings and attendance need
+ * something to belong to.
+ *
+ * Meeting times are WALL CLOCK in PROGRAM_TIMEZONE: a weekday and a
+ * minute-of-day, never a UTC instant or offset. US daylight saving ends
+ * mid-term on Nov 1, and families were promised "US daylight-saving changes
+ * do not affect your times", so 09:00 stays 09:00 in New York while the UTC
+ * instant moves. Each occurrence resolves its own instant from these.
+ *
+ * `offer.section` stays as the family-facing display string. This table does
+ * not replace it — the spreadsheet import still writes that text, and
+ * roundtrip.test.ts still guards it.
+ */
+export const section = sqliteTable(
+  'section',
+  {
+    id: text('id').primaryKey(),
+    // The first term key the system has ever had. Everything else still
+    // assumes a single term exists.
+    term: text('term').notNull(),
+    courseKey: text('course_key').notNull(),
+    number: integer('number').notNull(),
+    // 'QUADRATIC-2' — matches offer.section, and discord_role.key.
+    label: text('label').notNull(),
+    // Weekday 0 = Sunday. Null until someone resolves the time.
+    problemWeekday: integer('problem_weekday'),
+    problemMinute: integer('problem_minute'),
+    officeWeekday: integer('office_weekday'),
+    officeMinute: integer('office_minute'),
+    createdAt: integer('created_at').notNull().default(nowSql),
+    updatedAt: integer('updated_at').notNull().default(nowSql),
+  },
+  (t) => ({
+    termLabel: uniqueIndex('section_term_label_idx').on(t.term, t.label),
+  }),
+);
+
+/*
+ * One row per meeting that is actually supposed to happen.
+ *
+ * Materialised rather than computed from a recurrence rule, because a rule
+ * cannot express the Thanksgiving skip, a cancelled week, or a one-off
+ * reschedule — and because Zoom attendance needs a concrete row to attach to.
+ * Eight sections x two kinds x ten weeks is 160 rows for the whole term.
+ */
+export const sessionOccurrence = sqliteTable(
+  'session_occurrence',
+  {
+    id: text('id').primaryKey(),
+    sectionId: text('section_id')
+      .notNull()
+      .references(() => section.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['problem_session', 'office_hours'] }).notNull(),
+    // Calendar date in PROGRAM_TIMEZONE, 'YYYY-MM-DD'.
+    date: text('date').notNull(),
+    // Resolved instant. Recomputed if the section's wall-clock time changes.
+    startsAt: integer('starts_at').notNull(),
+    status: text('status', { enum: ['scheduled', 'cancelled'] })
+      .notNull()
+      .default('scheduled'),
+    // The specific Zoom occurrence, filled in once it is known. Zoom reports
+    // attendance per occurrence UUID, not per recurring meeting id.
+    zoomMeetingUuid: text('zoom_meeting_uuid'),
+    attendancePulledAt: integer('attendance_pulled_at'),
+    createdAt: integer('created_at').notNull().default(nowSql),
+  },
+  (t) => ({
+    once: uniqueIndex('occurrence_unique_idx').on(t.sectionId, t.kind, t.date),
+    byDate: index('occurrence_date_idx').on(t.date),
+  }),
+);

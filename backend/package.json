@@ -16,7 +16,8 @@
     "export-applications": "tsx src/scripts/export-applications.ts",
     "refresh-status": "tsx src/scripts/refresh-status.ts",
     "discord-reconcile": "tsx src/scripts/discord-reconcile.ts",
-    "discord-register-commands": "tsx src/scripts/discord-register-commands.ts"
+    "discord-register-commands": "tsx src/scripts/discord-register-commands.ts",
+    "backfill-sections": "tsx src/scripts/backfill-sections.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1091.0",

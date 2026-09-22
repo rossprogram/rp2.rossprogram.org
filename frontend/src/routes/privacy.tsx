@@ -9,7 +9,7 @@ function PrivacyPage() {
         Privacy at ℝℙ².
       </h1>
       <p className="text-muted italic mb-10">
-        Effective August&nbsp;1, 2026.
+        Effective September&nbsp;26, 2026.
       </p>
 
       <div className="prose-mm">
@@ -57,13 +57,16 @@ function PrivacyPage() {
           We do not use advertising cookies or build advertising profiles.
         </p>
         <p>
-          <b>Analytics.</b> We use Google Analytics to understand, in
-          aggregate, how visitors find and move through the site &mdash;
-          for example, which pages people read before they start an
+          <b>Website analytics.</b> We use Google Analytics to understand,
+          in aggregate, how visitors find and move through this website
+          &mdash; for example, which pages people read before they start an
           application. Google Analytics sets cookies in your browser and
           receives your IP address and general information about your
-          device and browser. We do not link analytics data to your
-          account or application, and we do not use it for advertising.
+          device and browser. We do not link this website-analytics data to
+          your account or application, and we do not use it for
+          advertising. Participation records for enrolled students are a
+          separate thing, described under{' '}
+          <i>Attendance and participation</i> below.
           You can opt out with the{' '}
           <a
             href="https://tools.google.com/dlpage/gaoptout"
@@ -73,6 +76,51 @@ function PrivacyPage() {
             Google Analytics Opt-out Browser Add-on
           </a>
           .
+        </p>
+
+        <H2>Attendance and participation</H2>
+
+        <p>
+          Once a student is <b>enrolled</b>, we keep a record of their
+          participation in the program. We do this because taking part is
+          what the program is: the participation agreement asks students to
+          attend their weekly problem session and office hours, and we
+          cannot support a student who is drifting if we cannot tell that
+          they are. This applies only to enrolled students, and only during
+          the term.
+        </p>
+        <p>What we record:</p>
+        <ul>
+          <li>
+            <b>Zoom</b> &mdash; which scheduled sessions a student joined,
+            when they joined and left, and how long they were connected.
+          </li>
+          <li>
+            <b>Discord</b> &mdash; how many messages a student posted in
+            each program channel each day, and how long they spent in voice
+            channels. <b>We do not receive the contents of messages.</b> The
+            program&rsquo;s Discord bot is configured without the permission
+            that would let Discord send us message text, so we cannot read
+            what a student wrote even if we wanted to.
+          </li>
+        </ul>
+        <p>
+          We do not track anything outside program spaces, we do not record
+          which websites a student visits, and we do not combine this with
+          the website analytics described above.
+        </p>
+        <p>
+          Program staff can see these records for the students they teach.
+          We use them to notice when someone has gone quiet and to reach
+          out, and in aggregate to understand whether the format worked. We
+          do not publish them, rank students by them, or share them outside
+          the program.
+        </p>
+        <p>
+          Participation records are deleted <b>twelve months</b> after the
+          end of the term they belong to. Students and guardians may ask to
+          see them, or ask us to correct them, at any time &mdash; see{' '}
+          <i>Your rights</i> below.
         </p>
 
         <H2>How we use it</H2>

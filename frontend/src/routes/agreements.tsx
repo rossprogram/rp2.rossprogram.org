@@ -23,7 +23,7 @@ import { AgreementPanel } from '../features/agreements/AgreementPanel';
 const Search = z.object({
   /** Set by the Discord OAuth callback on its way back. */
   discord: z
-    .enum(['joined', 'taken', 'failed', 'state', 'not_cleared', 'error'])
+    .enum(['joined', 'taken', 'failed', 'state', 'not_cleared', 'not_joined', 'error'])
     .optional(),
 });
 
@@ -35,6 +35,8 @@ async function ensureAuth() {
 
 const DISCORD_MESSAGES: Record<string, string> = {
   joined: 'You are in — check Discord.',
+  not_joined:
+    'We linked your account but could not add you to the server. Please try again, and tell us if it keeps failing.',
   taken: 'That Discord account is already linked to another student.',
   failed: 'Discord did not complete the sign-in. Please try again.',
   state: 'That link expired. Please try again.',
@@ -140,7 +142,7 @@ function AgreementsPage() {
                 Thank you — you are all set. We will email you about Discord,
                 Zoom, and Gradescope before classes begin.
               </p>
-            ) : discord.linked ? (
+            ) : discord.linked && discord.joined ? (
               <div>
                 <h2 className="font-serif text-2xl mb-2">Discord</h2>
                 <p className="text-muted">
@@ -148,6 +150,26 @@ function AgreementsPage() {
                   have been added to the program server with your course and
                   group.
                 </p>
+              </div>
+            ) : discord.linked ? (
+              /*
+               * Linked but not in the guild. Saying "you have been added" here
+               * is how nine students were told they had joined a server they
+               * could not see. Adding them needs a fresh authorization, since
+               * the token from the first attempt is long gone — so the only
+               * honest thing to offer is the button again.
+               */
+              <div>
+                <h2 className="font-serif text-2xl mb-2">Discord</h2>
+                <p className="text-muted mb-4">
+                  Your Discord account
+                  {discord.username ? ` (${discord.username})` : ''} is linked,
+                  but we have not managed to add you to the server yet. One more
+                  click should do it.
+                </p>
+                <a href="/api/discord/link" className="btn btn-primary no-underline">
+                  Finish joining the server →
+                </a>
               </div>
             ) : (
               <div>

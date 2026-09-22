@@ -205,7 +205,21 @@ export async function syncMember(
   const link = linkForApplication(applicationId);
   if (!link) return { status: 'skipped', reason: 'no_discord_link' };
 
-  const roleIds = roleIdsFor(desired);
+  let roleIds = roleIdsFor(desired);
+  if (!roleIds) {
+    /*
+     * We know the role NAMES but not yet their snowflakes, because nothing has
+     * resolved them against the guild yet. Do it now rather than skipping:
+     * a student linking their account is the moment this has to work, and
+     * waiting for an admin to run a reconcile first is how nine students got
+     * told they had joined a server they were never added to.
+     *
+     * Adopts by name only — never creates. A name we cannot find is still a
+     * mismatch for a human to resolve.
+     */
+    await ensureRoles();
+    roleIds = roleIdsFor(desired);
+  }
   if (!roleIds) return { status: 'skipped', reason: 'roles_not_created' };
 
   const member = await getMember(link.discordUserId);

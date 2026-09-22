@@ -343,6 +343,41 @@ describe('roles', () => {
 });
 
 describe('syncing a member', () => {
+  /*
+   * The production failure of 2026-09-22. Nine students linked their accounts
+   * before any reconcile had recorded the guild's role ids, so every sync bailed
+   * out with roles_not_created — and the callback told them they had joined a
+   * server they were never added to. A link must resolve the roles it needs.
+   */
+  it('resolves guild roles on demand rather than skipping the join', async () => {
+    const s = seed();
+    signEverything(s);
+    // The roles exist in the guild, but nothing has recorded their ids yet.
+    guild.roles.push(
+      { id: 'sec', name: 'Quadratic-Forms-2', position: 5, managed: false },
+      { id: 'grp', name: 'QF-2-Group-3', position: 4, managed: false },
+    );
+    expect(db.select().from(schema.discordRole).all()).toHaveLength(0);
+
+    saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
+    const outcome = await syncMember(s.appId, { accessToken: 'access-token' });
+
+    expect(outcome.status).toBe('joined');
+    expect(guild.members.get('discord-ada')!.roleIds.sort()).toEqual(['grp', 'sec']);
+    // It adopted, and did not invent duplicates.
+    expect(guild.calls.filter((c) => c.startsWith('create-role'))).toEqual([]);
+  });
+
+  it('still refuses when the roles genuinely are not in the guild', async () => {
+    const s = seed();
+    signEverything(s);
+    saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
+
+    const outcome = await syncMember(s.appId, { accessToken: 'access-token' });
+    expect(outcome).toEqual({ status: 'skipped', reason: 'roles_not_created' });
+    expect(guild.members.has('discord-ada')).toBe(false);
+  });
+
   it('joins a cleared student named and roled, in one call', async () => {
     const s = seed();
     signEverything(s);

@@ -184,7 +184,19 @@ export async function registerDiscordRoutes(app: FastifyInstance): Promise<void>
         return reply.redirect(`${env.APP_URL}/agreements?discord=taken`);
       }
 
-      await syncMember(appId, { accessToken: account.accessToken });
+      /*
+       * Report what actually happened. Redirecting to "joined" regardless of
+       * the outcome told nine students they were in a server they had never
+       * been added to, and gave them no way to notice or retry.
+       */
+      const outcome = await syncMember(appId, { accessToken: account.accessToken });
+      if (outcome.status === 'skipped') {
+        req.log.error(
+          { applicationId: appId, reason: outcome.reason },
+          'discord link succeeded but the guild join did not',
+        );
+        return reply.redirect(`${env.APP_URL}/agreements?discord=not_joined`);
+      }
       return reply.redirect(`${env.APP_URL}/agreements?discord=joined`);
     } catch (err) {
       req.log.error({ err }, 'discord link failed');

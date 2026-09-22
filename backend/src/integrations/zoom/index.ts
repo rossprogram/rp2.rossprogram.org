@@ -169,15 +169,27 @@ export async function listUsers(status: 'active' | 'inactive' | 'pending' = 'act
  * removed before this has been asked — especially for a program whose
  * sessions involve minors.
  */
-export async function countRecordings(userId: string, from: string, to: string): Promise<number> {
+export async function countRecordings(
+  userId: string,
+  from: string,
+  to: string,
+): Promise<number | null> {
   try {
     const qs = new URLSearchParams({ from, to, page_size: '300' });
     const { json } = await rest('GET', `/users/${encodeURIComponent(userId)}/recordings?${qs.toString()}`);
     const body = json as { total_records?: number };
     return body.total_records ?? 0;
   } catch (err) {
-    // A user with no recordings, or a scope we lack, must not abort an audit.
-    if (err instanceof ZoomError && (err.status === 404 || err.status === 400)) return 0;
+    /*
+     * NULL means "we could not find out", never "there are none".
+     *
+     * This originally returned 0 on any 4xx, and with the recording scope
+     * missing every call 400'd — so an audit of 196 accounts reported that
+     * not one of them had a recording. An unverified assumption dressed as a
+     * measurement is worse than no measurement, because someone acts on it.
+     */
+    if (err instanceof ZoomError && err.status === 404) return 0;
+    if (err instanceof ZoomError && err.status >= 400) return null;
     throw err;
   }
 }

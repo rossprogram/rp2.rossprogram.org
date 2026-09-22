@@ -118,12 +118,20 @@ async function main(): Promise<void> {
 
   console.log(`CANDIDATES FOR REMOVAL (${candidates.length}) — checking recordings…`);
   const withRecordings: { u: ZoomUser; n: number }[] = [];
+  const unknown: ZoomUser[] = [];
   const clean: ZoomUser[] = [];
 
   for (const u of candidates) {
     const n = await countRecordings(u.id, since, new Date().toISOString().slice(0, 10));
-    if (n > 0) withRecordings.push({ u, n });
+    if (n === null) unknown.push(u);
+    else if (n > 0) withRecordings.push({ u, n });
     else clean.push(u);
+  }
+
+  if (unknown.length > 0) {
+    console.log('');
+    console.log(`  !! could not check ${unknown.length} — treat as UNKNOWN, not as empty.`);
+    console.log('     Usually a missing cloud_recording:read scope on the app.');
   }
 
   if (withRecordings.length > 0) {

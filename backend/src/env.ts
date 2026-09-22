@@ -60,6 +60,16 @@ const Env = z.object({
   // Holding this role in the guild is what earns the staff tier of /whois.
   // Staff are not portal users, so this is the only way the bot knows.
   DISCORD_STAFF_ROLE_ID: z.string().optional(),
+
+  // Zoom, opt-in like the rest. Server-to-server OAuth: the account's own
+  // credentials, no redirect URL and no consent screen.
+  ZOOM_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  ZOOM_ACCOUNT_ID: z.string().optional(),
+  ZOOM_CLIENT_ID: z.string().optional(),
+  ZOOM_CLIENT_SECRET: z.string().optional(),
 }).superRefine((v, ctx) => {
   if (v.PAYMENTS_ENABLED && !v.STRIPE_SECRET_KEY) {
     ctx.addIssue({
@@ -83,6 +93,18 @@ const Env = z.object({
     'DISCORD_GUILD_ID',
     'DISCORD_PUBLIC_KEY',
   ] as const;
+  const zoomRequired = ['ZOOM_ACCOUNT_ID', 'ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET'] as const;
+  if (v.ZOOM_ENABLED) {
+    for (const key of zoomRequired) {
+      if (!v[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required when ZOOM_ENABLED=true`,
+        });
+      }
+    }
+  }
   if (v.DISCORD_ENABLED) {
     for (const key of discordRequired) {
       if (!v[key]) {

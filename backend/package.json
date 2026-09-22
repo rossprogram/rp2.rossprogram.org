@@ -19,7 +19,8 @@
     "discord-register-commands": "tsx src/scripts/discord-register-commands.ts",
     "backfill-sections": "tsx src/scripts/backfill-sections.ts",
     "grant-staff": "tsx src/scripts/grant-staff.ts",
-    "normalize-timezones": "tsx src/scripts/normalize-timezones.ts"
+    "normalize-timezones": "tsx src/scripts/normalize-timezones.ts",
+    "zoom-audit": "tsx src/scripts/zoom-audit.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1091.0",

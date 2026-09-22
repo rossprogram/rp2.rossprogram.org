@@ -574,3 +574,34 @@ export const sectionStaff = sqliteTable(
     byUser: index('section_staff_user_idx').on(t.userId),
   }),
 );
+
+/*
+ * A staff member's Zoom account.
+ *
+ * Their portal address and their Zoom address are not the same thing and
+ * there is no rule that makes them so: Blaze signs into the portal as a gmail
+ * address and into Zoom as okonogi@rossprogram.org. Meeting provisioning
+ * resolves a section's host by Zoom address, so guessing it from the portal
+ * address would fail to find the host — and surface as an empty meeting on a
+ * Sunday morning rather than as an error.
+ *
+ * Same shape as discord_link: keyed on the portal user, unique on the
+ * external identity.
+ */
+export const zoomAccount = sqliteTable(
+  'zoom_account',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    zoomEmail: text('zoom_email').notNull(),
+    // Zoom's own id, filled in once we have looked them up.
+    zoomUserId: text('zoom_user_id'),
+    linkedAt: integer('linked_at').notNull().default(nowSql),
+    lastSyncAt: integer('last_sync_at'),
+    lastSyncError: text('last_sync_error'),
+  },
+  (t) => ({
+    emailIdx: uniqueIndex('zoom_account_email_idx').on(t.zoomEmail),
+  }),
+);

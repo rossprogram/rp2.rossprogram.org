@@ -22,7 +22,7 @@
 
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { section, sectionStaff, user } from '../db/schema.js';
+import { section, sectionStaff, user, zoomAccount } from '../db/schema.js';
 import { countRecordings, listUsers, type ZoomUser } from '../integrations/zoom/index.js';
 
 function usage(): never {
@@ -32,20 +32,37 @@ function usage(): never {
 
 const TYPE_NAME: Record<number, string> = { 1: 'Basic', 2: 'Licensed', 3: 'On-prem' };
 
-/** Everyone the portal says is teaching or assisting a section. */
+/**
+ * Everyone teaching or assisting a section, keyed by the address Zoom knows
+ * them by.
+ *
+ * Portal address and Zoom address are not the same thing — Blaze is a gmail
+ * address in the portal and okonogi@rossprogram.org in Zoom — so matching on
+ * the portal address alone put his licensed account in the removal
+ * candidates on the first run of this audit.
+ */
 function staffEmails(): Map<string, string> {
   const rows = db
-    .select({ email: user.email, label: section.label, role: sectionStaff.role })
+    .select({
+      email: user.email,
+      zoomEmail: zoomAccount.zoomEmail,
+      label: section.label,
+      role: sectionStaff.role,
+    })
     .from(sectionStaff)
     .innerJoin(user, eq(user.id, sectionStaff.userId))
     .innerJoin(section, eq(section.id, sectionStaff.sectionId))
+    .leftJoin(zoomAccount, eq(zoomAccount.userId, sectionStaff.userId))
     .all();
 
   const out = new Map<string, string>();
   for (const r of rows) {
-    const key = r.email.toLowerCase();
-    const held = out.get(key);
-    out.set(key, held ? `${held}, ${r.label}` : `${r.label} (${r.role})`);
+    // Both addresses are protected: the Zoom one is what matches an account,
+    // and the portal one still matches when they happen to be the same.
+    for (const key of [r.email, r.zoomEmail].filter(Boolean).map((e) => e!.toLowerCase())) {
+      const held = out.get(key);
+      out.set(key, held?.includes(r.label) ? held : held ? `${held}, ${r.label}` : `${r.label} (${r.role})`);
+    }
   }
   return out;
 }

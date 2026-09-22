@@ -27,7 +27,7 @@
 
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { section, sectionStaff, user } from '../db/schema.js';
+import { section, sectionStaff, user, zoomAccount } from '../db/schema.js';
 import {
   ZoomError,
   countRecordings,
@@ -46,16 +46,22 @@ function usage(): never {
 /** Pause between calls: nearly 200 deletions is exactly where a burst gets throttled. */
 const GAP_MS = 350;
 
+/** Protected addresses: both the portal one and the Zoom one, where they differ. */
 function staffEmails(): Set<string> {
-  return new Set(
-    db
-      .select({ email: user.email })
-      .from(sectionStaff)
-      .innerJoin(user, eq(user.id, sectionStaff.userId))
-      .innerJoin(section, eq(section.id, sectionStaff.sectionId))
-      .all()
-      .map((r) => r.email.toLowerCase()),
-  );
+  const rows = db
+    .select({ email: user.email, zoomEmail: zoomAccount.zoomEmail })
+    .from(sectionStaff)
+    .innerJoin(user, eq(user.id, sectionStaff.userId))
+    .innerJoin(section, eq(section.id, sectionStaff.sectionId))
+    .leftJoin(zoomAccount, eq(zoomAccount.userId, sectionStaff.userId))
+    .all();
+
+  const out = new Set<string>();
+  for (const r of rows) {
+    out.add(r.email.toLowerCase());
+    if (r.zoomEmail) out.add(r.zoomEmail.toLowerCase());
+  }
+  return out;
 }
 
 async function main(): Promise<void> {

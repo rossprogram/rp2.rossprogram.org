@@ -3,9 +3,14 @@
  *
  * Reads a roster on stdin, one person per line, tab- or pipe-separated:
  *
- *   Name <email>            | role     | SECTION[,SECTION...]
- *   Blaze Okonogi <b@x.com> | mentor   | GGT-2,TOPOLOGY-2
- *   Emma Li <e@x.com>       | assistant|
+ *   Name <email>            | role     | SECTION[,...] | zoom@address
+ *   Blaze Okonogi <b@x.com> | mentor   | GGT-2,TOPOLOGY-2 | okonogi@rossprogram.org
+ *   Emma Li <e@x.com>       | assistant|               |
+ *
+ * The fourth field is optional and only needed when someone's Zoom address
+ * differs from their portal one — which it does for Blaze, and may for
+ * others. Meeting provisioning resolves a host by Zoom address, so this is
+ * recorded rather than guessed.
  *
  * Sections may be empty — an assistant who is not yet assigned is still a
  * staff account. Section labels must already exist; run backfill-sections
@@ -29,7 +34,7 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { TERM_KEY } from '@rp2/shared';
 import { db } from '../db/client.js';
-import { section, sectionStaff, user, userRole } from '../db/schema.js';
+import { section, sectionStaff, user, userRole, zoomAccount } from '../db/schema.js';
 
 function usage(): never {
   console.error('usage: grant-staff [--apply] < roster.txt');
@@ -44,9 +49,10 @@ type Entry = {
   email: string;
   role: 'mentor' | 'assistant';
   sections: string[];
+  zoomEmail: string | null;
 };
 
-const LINE = /^(.*?)<([^>]+)>\s*[|\t]\s*(mentor|assistant)\s*[|\t]?\s*(.*)$/i;
+const LINE = /^(.*?)<([^>]+)>\s*[|\t]\s*(mentor|assistant)\s*[|\t]?\s*([^|\t]*)(?:[|\t]\s*(.*))?$/i;
 
 function parseRoster(text: string): { entries: Entry[]; errors: string[] } {
   const entries: Entry[] = [];
@@ -66,6 +72,11 @@ function parseRoster(text: string): { entries: Entry[]; errors: string[] } {
       errors.push(`line ${i + 1}: "${email}" is not an email address`);
       continue;
     }
+    const zoomEmail = (m[5] ?? '').trim().toLowerCase() || null;
+    if (zoomEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(zoomEmail)) {
+      errors.push(`line ${i + 1}: "${zoomEmail}" is not an email address`);
+      continue;
+    }
     entries.push({
       name: m[1]!.trim(),
       email,
@@ -74,6 +85,7 @@ function parseRoster(text: string): { entries: Entry[]; errors: string[] } {
         .split(',')
         .map((s) => s.trim().toUpperCase())
         .filter(Boolean),
+      zoomEmail,
     });
   }
   return { entries, errors };
@@ -141,6 +153,8 @@ function main(): void {
       }
     }
 
+    if (e.zoomEmail && e.zoomEmail !== e.email) notes.push(`zoom: ${e.zoomEmail}`);
+
     const where = e.sections.length > 0 ? e.sections.join(', ') : '(no section)';
     console.log(`  ${e.name} <${e.email}>  ${e.role}  ${where}`);
     console.log(`      ${notes.join('; ')}`);
@@ -157,6 +171,16 @@ function main(): void {
         .values({ userId, role: e.role, grantedAt: now() })
         .onConflictDoNothing()
         .run();
+
+      if (e.zoomEmail) {
+        tx.insert(zoomAccount)
+          .values({ userId, zoomEmail: e.zoomEmail, linkedAt: now() })
+          .onConflictDoUpdate({
+            target: zoomAccount.userId,
+            set: { zoomEmail: e.zoomEmail },
+          })
+          .run();
+      }
 
       for (const label of e.sections) {
         const s = sections.get(label);

@@ -25,7 +25,9 @@ const { db } = await import('../src/db/client.js');
 const schema = await import('../src/db/schema.js');
 const { runMigrations } = await import('../src/db/migrate.js');
 const { build } = await import('../src/server.js');
-const { isCleared, isFullySigned, agreementHash } = await import('../src/services/agreements.js');
+const { isCleared, isFullySigned, agreementHash, suspectSignatures } = await import(
+  '../src/services/agreements.js'
+);
 const { AGREEMENTS, agreementByKey } = await import('@rp2/shared');
 
 type App = Awaited<ReturnType<typeof build>>;
@@ -34,10 +36,13 @@ let app: App;
 const now = () => Math.floor(Date.now() / 1000);
 
 /** An enrolled family: student, guardian, paid-up offer. */
-function seed(over: { status?: string; amountDueCents?: number } = {}) {
+function seed(
+  over: { status?: string; amountDueCents?: number; guardianName?: string } = {},
+) {
   const studentId = nanoid();
   const guardianId = nanoid();
   const strangerId = nanoid();
+  const adminId = nanoid();
   const appId = nanoid();
 
   db.insert(schema.user)
@@ -45,6 +50,7 @@ function seed(over: { status?: string; amountDueCents?: number } = {}) {
       { id: studentId, email: 'ada@example.com', createdAt: now() },
       { id: guardianId, email: 'parent@example.com', createdAt: now() },
       { id: strangerId, email: 'nosy@example.com', createdAt: now() },
+      { id: adminId, email: 'jim@example.com', createdAt: now() },
     ])
     .run();
   db.insert(schema.userRole)
@@ -52,6 +58,7 @@ function seed(over: { status?: string; amountDueCents?: number } = {}) {
       { userId: studentId, role: 'applicant', grantedAt: now() },
       { userId: guardianId, role: 'guardian', grantedAt: now() },
       { userId: strangerId, role: 'guardian', grantedAt: now() },
+      { userId: adminId, role: 'admin', grantedAt: now() },
     ])
     .run();
   db.insert(schema.application)
@@ -64,12 +71,23 @@ function seed(over: { status?: string; amountDueCents?: number } = {}) {
     })
     .run();
   db.insert(schema.applicationResponse)
-    .values({
-      applicationId: appId,
-      questionKey: 'student_legal_name',
-      value: JSON.stringify('Ada Lovelace'),
-      updatedAt: now(),
-    })
+    .values([
+      {
+        applicationId: appId,
+        questionKey: 'student_legal_name',
+        value: JSON.stringify('Ada Lovelace'),
+        updatedAt: now(),
+      },
+      // Both names, because the signing guard compares them: a family where
+      // the application carries no guardian name is the unusual case, not the
+      // default one.
+      {
+        applicationId: appId,
+        questionKey: 'guardian_name',
+        value: JSON.stringify(over.guardianName ?? 'Augusta Byron'),
+        updatedAt: now(),
+      },
+    ])
     .run();
   db.insert(schema.guardianLink)
     .values({
@@ -96,7 +114,7 @@ function seed(over: { status?: string; amountDueCents?: number } = {}) {
     })
     .run();
 
-  return { studentId, guardianId, strangerId, appId };
+  return { studentId, guardianId, strangerId, adminId, appId };
 }
 
 function login(userId: string): string {
@@ -145,6 +163,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  db.delete(schema.agreementSignatureVoid).run();
   db.delete(schema.agreementSignature).run();
   db.delete(schema.guardianContact).run();
   db.delete(schema.discordLink).run();
@@ -455,5 +474,433 @@ describe('the clearance gate', () => {
     // Discord is switched off in this suite, which is itself a refusal — the
     // gate proper is covered where it is switched on.
     expect([403, 503]).toContain(res.statusCode);
+  });
+});
+
+/*
+ * The wrong person at the keyboard.
+ *
+ * The participation agreement is written in the guardian's voice — "I, the
+ * undersigned, as parent or guardian..." — and the participant's line sits
+ * directly beneath it. Read aloud in a living room, on whichever browser is
+ * already logged in, the parent types their own name into the student's box.
+ * Nine enrolled families did exactly that, and none could undo it: signing is
+ * idempotent, so signing again changed nothing.
+ */
+describe('signing as the wrong person', () => {
+  it('refuses the guardian’s name on the participant’s line', async () => {
+    const s = seed();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/agreements/participation_agreement/sign',
+      headers: { cookie: `rp2_sid=${login(s.studentId)}` },
+      payload: { typedName: 'Augusta Byron' },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe('wrong_person');
+    expect(db.select().from(schema.agreementSignature).all()).toHaveLength(0);
+  });
+
+  it('refuses the participant’s name on the guardian’s line', async () => {
+    const s = seed();
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/parent/applicant/${s.appId}/agreements/participation_agreement/sign`,
+      headers: { cookie: `rp2_sid=${login(s.guardianId)}` },
+      payload: { typedName: 'Ada Lovelace', contact: CONTACT },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe('wrong_person');
+    expect(db.select().from(schema.agreementSignature).all()).toHaveLength(0);
+  });
+
+  it('applies to the code of conduct too', async () => {
+    const s = seed();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/agreements/code_of_conduct/sign',
+      headers: { cookie: `rp2_sid=${login(s.studentId)}` },
+      payload: { typedName: 'Augusta Byron' },
+    });
+    expect(res.statusCode).toBe(409);
+  });
+
+  /*
+   * Spelling drift is normal and must not block a family. The comparison
+   * ignores case, accents, punctuation, word order, and whether the name was
+   * written solid — all of which appear in the real data.
+   */
+  it('recognises the other party’s name however it is spelled', async () => {
+    for (const typed of ['augusta byron', 'Byron Augusta', 'AugustaByron', 'Augusta  Byron.']) {
+      db.delete(schema.agreementSignature).run();
+      db.delete(schema.applicationResponse).run();
+      db.delete(schema.offer).run();
+      db.delete(schema.application).run();
+      db.delete(schema.guardianLink).run();
+      db.delete(schema.session).run();
+      db.delete(schema.userRole).run();
+      db.delete(schema.user).run();
+
+      const s = seed();
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/agreements/code_of_conduct/sign',
+        headers: { cookie: `rp2_sid=${login(s.studentId)}` },
+        payload: { typedName: typed },
+      });
+      expect(res.json().error, typed).toBe('wrong_person');
+    }
+  });
+
+  it('allows a name that is neither party’s — a nickname is not a forgery', async () => {
+    const s = seed();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/agreements/code_of_conduct/sign',
+      headers: { cookie: `rp2_sid=${login(s.studentId)}` },
+      payload: { typedName: 'Ada King' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  /*
+   * Some applications carry the same name for both parties — a parent who
+   * filled the whole form in under their own name. There is nothing to tell
+   * apart there, and that family must still be able to sign.
+   */
+  it('does not lock out a family recorded under one name', async () => {
+    const s = seed({ guardianName: 'Ada Lovelace' });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/agreements/code_of_conduct/sign',
+      headers: { cookie: `rp2_sid=${login(s.studentId)}` },
+      payload: { typedName: 'Ada Lovelace' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+/*
+ * Voiding.
+ *
+ * The only way to undo a signature. Admin-only, requires a reason, and keeps
+ * the whole of the original row — a consent record you can quietly erase is
+ * not a consent record.
+ */
+describe('voiding a signature', () => {
+  function voidIt(
+    userId: string,
+    appId: string,
+    body: Record<string, unknown> = {},
+  ) {
+    return app.inject({
+      method: 'POST',
+      url: `/api/admin/agreements/${appId}/void`,
+      headers: { cookie: `rp2_sid=${login(userId)}` },
+      payload: {
+        document: 'participation_agreement',
+        signerKind: 'student',
+        reason: 'Parent signed the participant line by mistake; family emailed.',
+        ...body,
+      },
+    });
+  }
+
+  /** The student signs their own line, wrongly, before the guard existed. */
+  function forceWrongSignature(s: ReturnType<typeof seed>) {
+    db.insert(schema.agreementSignature)
+      .values({
+        id: nanoid(),
+        applicationId: s.appId,
+        document: 'participation_agreement',
+        signerKind: 'student',
+        signerUserId: s.studentId,
+        typedName: 'Augusta Byron',
+        documentVersion: agreementByKey('participation_agreement')!.version,
+        documentHash: agreementHash(agreementByKey('participation_agreement')!),
+        signedAt: now(),
+        ip: '203.0.113.7',
+        userAgent: 'Mozilla/5.0',
+      })
+      .run();
+  }
+
+  it('keeps the whole of the voided signature, plus who and why', async () => {
+    const s = seed();
+    forceWrongSignature(s);
+
+    const res = await voidIt(s.adminId, s.appId);
+    expect(res.statusCode).toBe(200);
+
+    expect(db.select().from(schema.agreementSignature).all()).toHaveLength(0);
+
+    const tomb = db.select().from(schema.agreementSignatureVoid).get()!;
+    expect(tomb.typedName).toBe('Augusta Byron');
+    expect(tomb.signerKind).toBe('student');
+    expect(tomb.signerUserId).toBe(s.studentId);
+    expect(tomb.ip).toBe('203.0.113.7');
+    expect(tomb.userAgent).toBe('Mozilla/5.0');
+    expect(tomb.documentHash).toBe(agreementHash(agreementByKey('participation_agreement')!));
+    expect(tomb.voidedByUserId).toBe(s.adminId);
+    expect(tomb.reason).toContain('Parent signed the participant line');
+  });
+
+  it('puts the slot back to outstanding, and un-clears the student', async () => {
+    const s = seed();
+    await signEverything(s);
+    expect(isCleared(s.appId)).toBe(true);
+
+    const res = await voidIt(s.adminId, s.appId);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().fullySigned).toBe(false);
+    expect(res.json().outstanding).toEqual([
+      { document: 'participation_agreement', signerKind: 'student' },
+    ]);
+    expect(isCleared(s.appId)).toBe(false);
+  });
+
+  /*
+   * The whole point. Before voiding, re-signing is an idempotent no-op that
+   * leaves the wrong name in place — which is why the nine families could not
+   * fix this themselves.
+   */
+  it('lets the right person sign afterwards', async () => {
+    const s = seed();
+    forceWrongSignature(s);
+
+    const blocked = await signAsStudent(s.studentId, 'participation_agreement');
+    expect(blocked.json().created).toBe(false);
+    expect(db.select().from(schema.agreementSignature).get()!.typedName).toBe('Augusta Byron');
+
+    await voidIt(s.adminId, s.appId);
+
+    const after = await signAsStudent(s.studentId, 'participation_agreement');
+    expect(after.json().created).toBe(true);
+    expect(db.select().from(schema.agreementSignature).get()!.typedName).toBe('Ada Lovelace');
+  });
+
+  it('demands a reason', async () => {
+    const s = seed();
+    forceWrongSignature(s);
+
+    const res = await voidIt(s.adminId, s.appId, { reason: 'oops' });
+    expect(res.statusCode).toBe(400);
+    expect(db.select().from(schema.agreementSignature).all()).toHaveLength(1);
+    expect(db.select().from(schema.agreementSignatureVoid).all()).toHaveLength(0);
+  });
+
+  it('404s an empty slot rather than writing an empty tombstone', async () => {
+    const s = seed();
+    const res = await voidIt(s.adminId, s.appId);
+    expect(res.statusCode).toBe(404);
+    expect(db.select().from(schema.agreementSignatureVoid).all()).toHaveLength(0);
+  });
+
+  it('is admin-only — a guardian cannot void their own signature', async () => {
+    const s = seed();
+    forceWrongSignature(s);
+
+    for (const userId of [s.guardianId, s.studentId]) {
+      const res = await voidIt(userId, s.appId);
+      expect(res.statusCode).toBe(403);
+    }
+    expect(db.select().from(schema.agreementSignature).all()).toHaveLength(1);
+  });
+});
+
+/*
+ * The backwards-looking half of the same rule.
+ *
+ * The signing guard only helps from the day it ships. The nine families who
+ * already tripped over it are not outstanding — they read as fully signed —
+ * so nothing else on the admin screen would ever surface them.
+ */
+describe('finding signatures the wrong person made', () => {
+  it('flags the guardian’s name on the participant’s line', async () => {
+    const s = seed();
+    db.insert(schema.agreementSignature)
+      .values({
+        id: nanoid(),
+        applicationId: s.appId,
+        document: 'participation_agreement',
+        signerKind: 'student',
+        signerUserId: s.studentId,
+        typedName: 'Augusta Byron',
+        documentVersion: '2026-09-04',
+        documentHash: 'x',
+        signedAt: now(),
+      })
+      .run();
+
+    const found = suspectSignatures();
+    expect(found).toHaveLength(1);
+    expect(found[0]!.typedName).toBe('Augusta Byron');
+    expect(found[0]!.signerKind).toBe('student');
+    expect(found[0]!.studentName).toBe('Ada Lovelace');
+    expect(found[0]!.guardianName).toBe('Augusta Byron');
+    // The telling detail: it came from the student's own portal account.
+    expect(found[0]!.signedFromEmail).toBe('ada@example.com');
+  });
+
+  it('leaves correctly signed families alone', async () => {
+    const s = seed();
+    await signEverything(s);
+    expect(suspectSignatures()).toEqual([]);
+  });
+
+  it('says nothing about a family recorded under one name', async () => {
+    const s = seed({ guardianName: 'Ada Lovelace' });
+    await signAsStudent(s.studentId, 'code_of_conduct');
+    expect(suspectSignatures()).toEqual([]);
+  });
+
+  it('ignores a family that is not enrolled', async () => {
+    const s = seed({ status: 'withdrawn' });
+    db.insert(schema.agreementSignature)
+      .values({
+        id: nanoid(),
+        applicationId: s.appId,
+        document: 'code_of_conduct',
+        signerKind: 'student',
+        signerUserId: s.studentId,
+        typedName: 'Augusta Byron',
+        documentVersion: '2026-09-21',
+        documentHash: 'x',
+        signedAt: now(),
+      })
+      .run();
+    expect(suspectSignatures()).toEqual([]);
+  });
+
+  it('shows a void on the admin list once one has happened', async () => {
+    const s = seed();
+    await signEverything(s);
+    await app.inject({
+      method: 'POST',
+      url: `/api/admin/agreements/${s.appId}/void`,
+      headers: { cookie: `rp2_sid=${login(s.adminId)}` },
+      payload: {
+        document: 'code_of_conduct',
+        signerKind: 'student',
+        reason: 'Signed by the parent in error, confirmed by email.',
+      },
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/agreements',
+      headers: { cookie: `rp2_sid=${login(s.adminId)}` },
+    });
+    const body = res.json();
+
+    expect(body.voids).toHaveLength(1);
+    expect(body.voids[0].voidedByEmail).toBe('jim@example.com');
+    expect(body.voids[0].studentName).toBe('Ada Lovelace');
+    expect(body.voids[0].reason).toContain('Signed by the parent in error');
+    // And the family is back on the chase list.
+    expect(body.outstandingCount).toBe(1);
+  });
+});
+
+/*
+ * The second detection rule.
+ *
+ * The first one leans on the guardian name recorded on the application, and in
+ * the real data that name is sometimes an English name the parent never signs
+ * with ("Rachel Gu" on file, "YANWEN GU" typed) or simply misspelled
+ * ("JIOAJIOA HU" against "Jiaojiao Hu"). One name standing in both halves of a
+ * document two different people are supposed to sign needs none of that.
+ */
+describe('one name in both halves of a document', () => {
+  function put(
+    s: ReturnType<typeof seed>,
+    signerKind: 'student' | 'guardian',
+    typedName: string,
+    document = 'code_of_conduct' as const,
+  ) {
+    db.insert(schema.agreementSignature)
+      .values({
+        id: nanoid(),
+        applicationId: s.appId,
+        document,
+        signerKind,
+        signerUserId: signerKind === 'student' ? s.studentId : s.guardianId,
+        typedName,
+        documentVersion: '2026-09-21',
+        documentHash: 'x',
+        signedAt: now(),
+      })
+      .run();
+  }
+
+  /*
+   * The case rule one cannot see: the shared name matches neither party on
+   * file, so nothing says which half is wrong. Both go on the list.
+   */
+  it('lists both halves when the shared name matches neither party', () => {
+    const s = seed();
+    put(s, 'student', 'Yanwen Gu');
+    put(s, 'guardian', 'Yanwen Gu');
+
+    const found = suspectSignatures();
+    expect(found).toHaveLength(2);
+    expect(found.every((f) => f.reason === 'duplicate_of_other_slot')).toBe(true);
+    expect(found.map((f) => f.signerKind).sort()).toEqual(['guardian', 'student']);
+  });
+
+  it('lists only the student’s half when the shared name is the guardian’s', () => {
+    const s = seed();
+    put(s, 'student', 'Augusta Byron');
+    put(s, 'guardian', 'Augusta Byron');
+
+    const found = suspectSignatures();
+    expect(found).toHaveLength(1);
+    expect(found[0]!.signerKind).toBe('student');
+    // Rule one saw this first and is the more specific explanation.
+    expect(found[0]!.reason).toBe('other_partys_name');
+  });
+
+  it('lists only the guardian’s half when the shared name is the student’s', () => {
+    const s = seed();
+    put(s, 'student', 'Ada Lovelace');
+    put(s, 'guardian', 'Ada Lovelace');
+
+    const found = suspectSignatures();
+    expect(found).toHaveLength(1);
+    expect(found[0]!.signerKind).toBe('guardian');
+  });
+
+  it('says nothing when the two halves carry different names', async () => {
+    const s = seed();
+    await signEverything(s);
+    expect(suspectSignatures()).toEqual([]);
+  });
+
+  it('does not flag a family recorded under one name', () => {
+    const s = seed({ guardianName: 'Ada Lovelace' });
+    put(s, 'student', 'Ada Lovelace');
+    put(s, 'guardian', 'Ada Lovelace');
+    expect(suspectSignatures()).toEqual([]);
+  });
+
+  /* Each document stands alone — a name shared across two documents by the
+   * same person is just that person signing twice. */
+  it('compares within a document, not across them', () => {
+    const s = seed();
+    put(s, 'student', 'Ada Lovelace', 'code_of_conduct');
+    put(s, 'guardian', 'Augusta Byron', 'participation_agreement');
+    expect(suspectSignatures()).toEqual([]);
+  });
+
+  it('does not report the same signature twice when both rules fire', () => {
+    const s = seed();
+    put(s, 'student', 'Augusta Byron', 'participation_agreement');
+    put(s, 'guardian', 'Augusta Byron', 'participation_agreement');
+
+    const found = suspectSignatures();
+    const slots = found.map((f) => `${f.document}:${f.signerKind}`);
+    expect(new Set(slots).size).toBe(slots.length);
   });
 });

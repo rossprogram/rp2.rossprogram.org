@@ -23,6 +23,7 @@ export type StudentNames = {
 
 const LEGAL_KEY = 'student_legal_name';
 const PREFERRED_KEY = 'student_preferred_name';
+const GUARDIAN_KEY = 'guardian_name';
 
 /**
  * Responses are JSON-encoded, and the applicant's own signature field stores
@@ -97,4 +98,85 @@ export function studentNamesForMany(
 export function displayNameFor(applicationId: string): string | null {
   const n = studentNamesFor(applicationId);
   return n.preferred ?? n.legal;
+}
+
+/*
+ * The parent or guardian's name, as the applicant gave it on the form.
+ *
+ * Read from the same store and through the same unwrapping as the student's,
+ * because it is used for the same kind of comparison: the signing page has to
+ * be able to tell "this is the student" from "this is the student's parent
+ * typing at the student's keyboard", and it can only do that if both names
+ * come out normalized the same way.
+ */
+export function guardianNameFor(applicationId: string): string | null {
+  const row = db
+    .select({ value: applicationResponse.value })
+    .from(applicationResponse)
+    .where(
+      and(
+        eq(applicationResponse.applicationId, applicationId),
+        eq(applicationResponse.questionKey, GUARDIAN_KEY),
+      ),
+    )
+    .get();
+  return readString(row?.value);
+}
+
+/** Batch form, for the admin review screen. */
+export function guardianNamesForMany(applicationIds: string[]): Map<string, string | null> {
+  const out = new Map<string, string | null>();
+  if (applicationIds.length === 0) return out;
+
+  const rows = db
+    .select({
+      applicationId: applicationResponse.applicationId,
+      value: applicationResponse.value,
+    })
+    .from(applicationResponse)
+    .where(
+      and(
+        inArray(applicationResponse.applicationId, applicationIds),
+        eq(applicationResponse.questionKey, GUARDIAN_KEY),
+      ),
+    )
+    .all();
+
+  for (const id of applicationIds) out.set(id, null);
+  for (const r of rows) out.set(r.applicationId, readString(r.value));
+  return out;
+}
+
+/*
+ * Compare two names the way a person would.
+ *
+ * Case, spacing, punctuation and accents all vary between what someone typed
+ * on the application in May and what they typed on a signature page in
+ * September — "Mustafa Güzel" and "Mustafa Guzel" are the same person, and so
+ * are "DongSixiong" and "Dong Sixiong". Word ORDER is deliberately ignored
+ * too: plenty of families write the family name first in one place and last in
+ * the other.
+ *
+ * This is used to spot a signature typed by the wrong person, so it errs
+ * towards calling two spellings the same. A false match means we let a
+ * signature through; a false mismatch means we block a family from signing.
+ */
+export function sameName(a: string | null, b: string | null): boolean {
+  const key = (s: string | null): string | null => {
+    if (!s) return null;
+    const words = s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+      .sort();
+    // Joined with NO separator, so a name written solid ("DongSixiong")
+    // collapses to the same key as the spaced form ("Dong Sixiong").
+    return words.length > 0 ? words.join('') : null;
+  };
+  const ka = key(a);
+  const kb = key(b);
+  return ka !== null && ka === kb;
 }

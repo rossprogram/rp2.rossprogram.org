@@ -401,6 +401,56 @@ export const agreementSignature = sqliteTable(
 );
 
 /*
+ * A signature that was taken back.
+ *
+ * Voiding is a delete plus this tombstone, never a bare delete: the whole
+ * point of a consent record is that it can be reconstructed afterwards, and
+ * "there used to be a signature here and an admin removed it" is itself part
+ * of the record. Every field of the original row is copied across, so the
+ * tombstone answers the same questions the live row could.
+ *
+ * Not unique on (application, document, signer_kind) — the same slot can be
+ * voided more than once, and each attempt is its own row.
+ */
+export const agreementSignatureVoid = sqliteTable(
+  'agreement_signature_void',
+  {
+    id: text('id').primaryKey(),
+    // The voided signature's own id, kept so a tombstone can still be matched
+    // to anything that referenced the row before it went away.
+    signatureId: text('signature_id').notNull(),
+    applicationId: text('application_id')
+      .notNull()
+      .references(() => application.id, { onDelete: 'cascade' }),
+    document: text('document', {
+      enum: ['code_of_conduct', 'participation_agreement'],
+    }).notNull(),
+    signerKind: text('signer_kind', { enum: ['student', 'guardian'] }).notNull(),
+    // ---- the voided signature, copied verbatim ----
+    signerUserId: text('signer_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    typedName: text('typed_name').notNull(),
+    documentVersion: text('document_version').notNull(),
+    documentHash: text('document_hash').notNull(),
+    signedAt: integer('signed_at').notNull(),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    // ---- who took it back, and why ----
+    voidedByUserId: text('voided_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    // Free text, required. An unexplained void is the thing this table exists
+    // to make impossible.
+    reason: text('reason').notNull(),
+    voidedAt: integer('voided_at').notNull().default(nowSql),
+  },
+  (t) => ({
+    applicationIdx: index('agreement_signature_void_application_idx').on(t.applicationId),
+  }),
+);
+
+/*
  * The contact block inside the participation agreement.
  *
  * Separate from the signature because it is live operational data, not

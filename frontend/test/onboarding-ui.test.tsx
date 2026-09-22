@@ -17,6 +17,7 @@ import type { OnboardingList, ReconcileResult } from '../src/api/client';
 const fetchOnboarding = vi.fn();
 const sendReminders = vi.fn();
 const reconcileDiscord = vi.fn();
+const voidSignature = vi.fn();
 
 vi.mock('../src/api/client', async (orig) => {
   const actual = await orig<typeof import('../src/api/client')>();
@@ -25,6 +26,7 @@ vi.mock('../src/api/client', async (orig) => {
     fetchOnboarding: (...a: unknown[]) => fetchOnboarding(...a),
     sendReminders: (...a: unknown[]) => sendReminders(...a),
     reconcileDiscord: (...a: unknown[]) => reconcileDiscord(...a),
+    voidSignature: (...a: unknown[]) => voidSignature(...a),
   };
 });
 
@@ -62,6 +64,8 @@ function list(over: Partial<OnboardingList> = {}): OnboardingList {
         ],
       },
     ],
+    suspect: [],
+    voids: [],
     ...over,
   };
 }
@@ -306,5 +310,119 @@ describe('the Discord panel', () => {
 
     await user.click(screen.getByRole('button', { name: /dry run/i }));
     expect(await screen.findByText(/switched off on the server/i)).toBeTruthy();
+  });
+});
+
+/*
+ * Signatures the wrong person made, and taking one back.
+ *
+ * These families are not on the chase list — a signature made by the wrong
+ * person reads as done, which is exactly why nothing else surfaces them. The
+ * section therefore has to survive an empty chase list, and voiding has to be
+ * hard enough to be deliberate: it destroys a consent record.
+ */
+describe('signatures that need a look', () => {
+  const SUSPECT = {
+    applicationId: 'app9',
+    studentName: 'Emya Jain',
+    studentEmail: 'student@example.com',
+    guardianName: 'Anshu Jain',
+    document: 'participation_agreement',
+    signerKind: 'student' as const,
+    typedName: 'Anshu Jain',
+    signedAt: 1_790_090_978,
+    signedFromEmail: 'student@example.com',
+    reason: 'other_partys_name' as const,
+  };
+
+  async function openVoidForm() {
+    const user = userEvent.setup();
+    renderBoard();
+    await screen.findByText(/signatures that need a look/i);
+    await user.click(screen.getByRole('button', { name: /void this signature/i }));
+    return user;
+  }
+
+  it('shows a suspect signature even when nothing is outstanding', async () => {
+    fetchOnboarding.mockResolvedValue(
+      list({ outstandingCount: 0, families: [], suspect: [SUSPECT] }),
+    );
+    renderBoard();
+
+    await screen.findByText(/nothing outstanding/i);
+    expect(screen.getByText(/signatures that need a look/i)).toBeInTheDocument();
+    expect(screen.getByText(/Emya Jain/)).toBeInTheDocument();
+    expect(screen.getByText(/“Anshu Jain”/)).toBeInTheDocument();
+  });
+
+  it('will not void without a reason', async () => {
+    fetchOnboarding.mockResolvedValue(list({ suspect: [SUSPECT] }));
+    const user = await openVoidForm();
+
+    const confirm = screen.getByRole('button', { name: /^void signature$/i });
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+
+    await user.type(screen.getByRole('textbox'), 'too short');
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    expect(voidSignature).not.toHaveBeenCalled();
+  });
+
+  it('sends the slot and the reason, and nothing else', async () => {
+    fetchOnboarding.mockResolvedValue(list({ suspect: [SUSPECT] }));
+    voidSignature.mockResolvedValue({ voided: true, outstanding: [], fullySigned: false });
+    const user = await openVoidForm();
+
+    await user.type(
+      screen.getByRole('textbox'),
+      'Parent signed the participant line by mistake; confirmed by email.',
+    );
+    await user.click(screen.getByRole('button', { name: /^void signature$/i }));
+
+    await waitFor(() => expect(voidSignature).toHaveBeenCalledTimes(1));
+    expect(voidSignature).toHaveBeenCalledWith('app9', {
+      document: 'participation_agreement',
+      signerKind: 'student',
+      reason: 'Parent signed the participant line by mistake; confirmed by email.',
+    });
+  });
+
+  it('says the signature is unchanged when the void fails', async () => {
+    fetchOnboarding.mockResolvedValue(list({ suspect: [SUSPECT] }));
+    voidSignature.mockRejectedValue(new Error('nope'));
+    const user = await openVoidForm();
+
+    await user.type(screen.getByRole('textbox'), 'A reason long enough to pass.');
+    await user.click(screen.getByRole('button', { name: /^void signature$/i }));
+
+    expect(await screen.findByText(/the signature is unchanged/i)).toBeInTheDocument();
+  });
+
+  it('keeps every void on the page, with who did it and why', async () => {
+    fetchOnboarding.mockResolvedValue(
+      list({
+        outstandingCount: 0,
+        families: [],
+        voids: [
+          {
+            applicationId: 'app9',
+            studentName: 'Emya Jain',
+            document: 'participation_agreement',
+            signerKind: 'student',
+            typedName: 'Anshu Jain',
+            signedAt: 1_790_090_978,
+            voidedAt: 1_790_100_000,
+            voidedByEmail: 'jim@example.com',
+            reason: 'Parent signed the participant line by mistake.',
+          },
+        ],
+      }),
+    );
+    renderBoard();
+
+    await screen.findByText(/voided signatures/i);
+    expect(screen.getByText(/jim@example.com/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Parent signed the participant line by mistake\./),
+    ).toBeInTheDocument();
   });
 });

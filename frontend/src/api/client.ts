@@ -517,6 +517,8 @@ export type AgreementEnvelope = {
   enrolled: boolean;
   studentName: string | null;
   studentLegalName: string | null;
+  /** The parent or guardian named on the application. */
+  guardianName: string | null;
   viewer: 'student' | 'guardian';
   /** What the viewer still owes. */
   mine: Outstanding[];
@@ -568,12 +570,41 @@ export type OnboardingFamily = {
   outstanding: Outstanding[];
 };
 
+/** A signature that looks like the wrong party typed it. */
+export type SuspectSignature = {
+  applicationId: string;
+  studentName: string | null;
+  studentEmail: string;
+  guardianName: string | null;
+  document: string;
+  signerKind: 'student' | 'guardian';
+  typedName: string;
+  signedAt: number;
+  signedFromEmail: string | null;
+  /** Why it is on the list — the two rules catch different families. */
+  reason: 'other_partys_name' | 'duplicate_of_other_slot';
+};
+
+export type VoidRecord = {
+  applicationId: string;
+  studentName: string | null;
+  document: string;
+  signerKind: 'student' | 'guardian';
+  typedName: string;
+  signedAt: number;
+  voidedAt: number;
+  voidedByEmail: string | null;
+  reason: string;
+};
+
 export type OnboardingList = {
   documents: { key: string; title: string; version: string }[];
   outstandingCount: number;
   /** Families whose guardian has never accepted their portal invite. */
   neverLoggedIn: number;
   families: OnboardingFamily[];
+  suspect: SuspectSignature[];
+  voids: VoidRecord[];
 };
 
 export type RemindPlanned = {
@@ -607,6 +638,16 @@ export function fetchOnboarding() {
 
 export function sendReminders(body: { applicationIds?: string[]; dryRun: boolean }) {
   return api.post<RemindResult>('/api/admin/agreements/remind', body);
+}
+
+export function voidSignature(
+  applicationId: string,
+  body: { document: string; signerKind: 'student' | 'guardian'; reason: string },
+) {
+  return api.post<{ voided: true; outstanding: Outstanding[]; fullySigned: boolean }>(
+    `/api/admin/agreements/${applicationId}/void`,
+    body,
+  );
 }
 
 export function reconcileDiscord(body: { dryRun: boolean; allowCreate?: boolean }) {

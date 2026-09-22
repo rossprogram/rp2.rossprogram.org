@@ -71,6 +71,13 @@
       "when": 1790091679763,
       "tag": "0009_zoom_account",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1790095600445,
+      "tag": "0010_void_signatures",
+      "breakpoints": true
     }
   ]
 }

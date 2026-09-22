@@ -10,7 +10,7 @@ import {
   signAgreement,
 } from '../services/agreements.js';
 import { isEnrolled } from '../services/offers.js';
-import { studentNamesFor } from '../services/names.js';
+import { guardianNameFor, studentNamesFor } from '../services/names.js';
 import { discordEnabled } from '../integrations/discord/index.js';
 import { linkFor } from '../services/discord-sync.js';
 
@@ -70,6 +70,11 @@ function envelopeFor(applicationId: string, viewer: 'student' | 'guardian') {
     enrolled: isEnrolled(applicationId),
     studentName: names.preferred ?? names.legal,
     studentLegalName: names.legal,
+    /* Both names, so the signing form can say whose line this is and catch a
+     * parent typing their own name into the participant's box before the
+     * server has to refuse it. Each party is being shown a name they supplied
+     * on their own application. */
+    guardianName: guardianNameFor(applicationId),
     viewer,
     /** What this viewer still has to do. */
     mine: state.outstanding.filter((o) => o.signerKind === viewer),

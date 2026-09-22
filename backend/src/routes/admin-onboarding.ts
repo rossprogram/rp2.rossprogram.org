@@ -1,13 +1,19 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { AGREEMENTS, agreementByKey } from '@rp2/shared';
+import { AGREEMENTS, AGREEMENT_KEYS, SIGNER_KINDS, agreementByKey } from '@rp2/shared';
 import { env } from '../env.js';
 import { requireAuth } from '../auth/session.js';
 import { requestGuardianInvite } from '../auth/magic-link.js';
 import { sendEmail } from '../integrations/email/ses.js';
 import { renderSignatureReminderEmail } from '../integrations/email/templates.js';
 import { discordEnabled } from '../integrations/discord/index.js';
-import { outstandingFamilies } from '../services/agreements.js';
+import {
+  AgreementError,
+  outstandingFamilies,
+  recentVoids,
+  suspectSignatures,
+  voidSignature,
+} from '../services/agreements.js';
 import { reconcileAll } from '../services/discord-sync.js';
 import { studentNamesForMany } from '../services/names.js';
 
@@ -25,6 +31,15 @@ const RemindBody = z.object({
   applicationIds: z.array(z.string()).max(500).optional(),
   /** Preview only — report who WOULD be written to, and send nothing. */
   dryRun: z.boolean().default(false),
+});
+
+const VoidBody = z.object({
+  document: z.enum(AGREEMENT_KEYS),
+  signerKind: z.enum(SIGNER_KINDS),
+  /* Required, and long enough to be a sentence. This lands verbatim in the
+   * tombstone and is the only explanation anyone reading the record later
+   * will have. */
+  reason: z.string().min(10).max(1000),
 });
 
 const ReconcileBody = z.object({
@@ -70,7 +85,60 @@ export async function registerAdminOnboardingRoutes(app: FastifyInstance): Promi
         guardianAccepted: f.guardianAccepted,
         outstanding: f.outstanding,
       })),
+      /* Signatures that look like the wrong person typed them. Separate from
+       * the chase list on purpose: these families are not waiting on anything,
+       * which is exactly why nothing else would ever surface them. */
+      suspect: suspectSignatures(),
+      voids: recentVoids(),
     };
+  });
+
+  /**
+   * Void one signature.
+   *
+   * The only way to undo a signature, because signing is idempotent and the
+   * first one counts. Deletes the live row and writes a tombstone carrying the
+   * whole of it plus who voided it and why — see `voidSignature()`.
+   *
+   * The slot is outstanding again afterwards, so the family reappears on the
+   * chase list and the student is no longer cleared. That is the intended
+   * effect, not a side effect: the point of voiding is that the signature is
+   * genuinely missing and someone has to make it again.
+   */
+  app.post('/api/admin/agreements/:appId/void', { preHandler: requireAuth('admin') }, async (req, reply) => {
+    const appId = (req.params as { appId: string }).appId;
+    const parsed = VoidBody.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
+    }
+
+    try {
+      const { state } = voidSignature({
+        applicationId: appId,
+        document: parsed.data.document,
+        signerKind: parsed.data.signerKind,
+        voidedByUserId: req.currentUser!.id,
+        reason: parsed.data.reason,
+      });
+
+      /* Ids only — a voided signature is a name, and names do not go in logs. */
+      req.log.warn(
+        {
+          applicationId: appId,
+          document: parsed.data.document,
+          signerKind: parsed.data.signerKind,
+          voidedBy: req.currentUser!.id,
+        },
+        'agreement signature voided',
+      );
+
+      return { voided: true, outstanding: state.outstanding, fullySigned: state.fullySigned };
+    } catch (err) {
+      if (err instanceof AgreementError) {
+        return reply.code(err.statusCode).send({ error: err.code, message: err.message });
+      }
+      throw err;
+    }
   });
 
   app.post('/api/admin/agreements/remind', { preHandler: requireAuth('admin') }, async (req, reply) => {

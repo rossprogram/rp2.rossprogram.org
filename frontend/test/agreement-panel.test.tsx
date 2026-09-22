@@ -43,6 +43,7 @@ function env(over: Partial<AgreementEnvelope> = {}): AgreementEnvelope {
     enrolled: true,
     studentName: 'Bryan',
     studentLegalName: 'Bryan Ning',
+    guardianName: 'Allison Ning',
     viewer: 'guardian',
     mine: [],
     theirs: [],
@@ -179,5 +180,93 @@ describe('the guardian contact block', () => {
       }),
     );
     expect(screen.queryByPlaceholderText('+1 555 555 0100')).toBeNull();
+  });
+});
+
+/*
+ * The wrong person at the keyboard.
+ *
+ * The participation agreement is written in the guardian's voice, and the
+ * participant's acknowledgement sits directly beneath it. A parent reading it
+ * over the student's shoulder, on the student's logged-in browser, types their
+ * own name into the student's box — nine enrolled families did. The server
+ * refuses it now; the panel has to say so while they are still looking at the
+ * field, and say whose line it is before they start typing.
+ */
+describe('signing as the wrong person', () => {
+  function studentSigning(over: Partial<AgreementEnvelope> = {}) {
+    return env({
+      viewer: 'student',
+      mine: [{ document: 'participation_agreement', signerKind: 'student' }],
+      ...over,
+    });
+  }
+
+  function signButton() {
+    return screen.getByRole('button', { name: /^sign$/i }) as HTMLButtonElement;
+  }
+
+  it('says whose line this is', () => {
+    renderPanel(studentSigning());
+    expect(screen.getByText(/this line is for/i)).toHaveTextContent(
+      /Bryan Ning.*participant/i,
+    );
+  });
+
+  it('blocks the guardian’s name and explains where they sign instead', async () => {
+    const user = userEvent.setup();
+    renderPanel(studentSigning());
+
+    await user.type(screen.getByPlaceholderText('Type your full name'), 'Allison Ning');
+
+    expect(signButton().disabled).toBe(true);
+    expect(screen.getByText(/this line is the participant’s/i)).toBeInTheDocument();
+    expect(screen.getByText(/from their own portal/i)).toBeInTheDocument();
+  });
+
+  it('recognises the name however it is spelled', async () => {
+    const user = userEvent.setup();
+    renderPanel(studentSigning());
+
+    const box = screen.getByPlaceholderText('Type your full name');
+    for (const typed of ['allison ning', 'Ning Allison', 'AllisonNing']) {
+      await user.clear(box);
+      await user.type(box, typed);
+      expect(signButton().disabled, typed).toBe(true);
+    }
+  });
+
+  it('lets the student sign their own name', async () => {
+    const user = userEvent.setup();
+    renderPanel(studentSigning());
+
+    await user.type(screen.getByPlaceholderText('Type your full name'), 'Bryan Ning');
+    expect(signButton().disabled).toBe(false);
+  });
+
+  it('blocks the student’s name on the guardian’s line too', async () => {
+    const user = userEvent.setup();
+    renderPanel(
+      env({
+        viewer: 'guardian',
+        mine: [{ document: 'code_of_conduct', signerKind: 'guardian' }],
+      }),
+    );
+
+    await user.type(screen.getByPlaceholderText('Type your full name'), 'Bryan Ning');
+    expect(signButton().disabled).toBe(true);
+    expect(screen.getByText(/this line is the parent or guardian’s/i)).toBeInTheDocument();
+  });
+
+  /*
+   * A family recorded under one name on the application has nothing to tell
+   * apart, and must not be locked out of signing at all.
+   */
+  it('does not lock out a family recorded under one name', async () => {
+    const user = userEvent.setup();
+    renderPanel(studentSigning({ guardianName: 'Bryan Ning' }));
+
+    await user.type(screen.getByPlaceholderText('Type your full name'), 'Bryan Ning');
+    expect(signButton().disabled).toBe(false);
   });
 });

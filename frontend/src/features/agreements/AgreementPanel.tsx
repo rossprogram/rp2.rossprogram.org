@@ -34,6 +34,32 @@ function otherPartyLabel(viewer: 'student' | 'guardian', studentName: string | n
   return viewer === 'student' ? 'your parent or guardian' : (studentName ?? 'your student');
 }
 
+/*
+ * Compare two names the way a person would — the browser-side twin of
+ * `sameName()` in backend/src/services/names.ts, and it must stay in step with
+ * it. Accents, case, punctuation and word order all vary between what someone
+ * typed on the application and what they type on a signature page, and the
+ * sorted words are joined with no separator so a solid spelling matches a
+ * spaced one.
+ */
+function sameName(a: string | null, b: string | null): boolean {
+  const key = (s: string | null): string | null => {
+    if (!s) return null;
+    const words = s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+      .sort();
+    return words.length > 0 ? words.join('') : null;
+  };
+  const ka = key(a);
+  const kb = key(b);
+  return ka !== null && ka === kb;
+}
+
 /** The document itself, rendered from the shared definition. */
 function DocumentBody({ doc }: { doc: AgreementDoc }) {
   return (
@@ -69,6 +95,9 @@ type SignFormProps = {
    * contact for the term, which is not necessarily the login address. */
   initialContact: { email: string; phone: string; altPhone: string | null } | null;
   defaultEmail: string;
+  /** Who this line belongs to, and who it does not. */
+  ownName: string | null;
+  otherName: string | null;
   pending: boolean;
   error: string | null;
   onSign: (payload: SignPayload) => void;
@@ -79,6 +108,8 @@ function SignForm({
   viewer,
   initialContact,
   defaultEmail,
+  ownName,
+  otherName,
   pending,
   error,
   onSign,
@@ -91,7 +122,27 @@ function SignForm({
   // The contact block belongs to the participation agreement, and only the
   // guardian fills it in.
   const needsContact = doc.collectsGuardianContact && viewer === 'guardian';
-  const canSign = typed.trim().length >= 2 && (!needsContact || phone.trim().length > 0);
+
+  /*
+   * The wrong person at the keyboard.
+   *
+   * The participation agreement is written in the guardian's voice — "I, the
+   * undersigned, as parent or guardian..." — so a parent reading it over the
+   * student's shoulder, on the student's logged-in browser, types their own
+   * name into the participant's acknowledgement. Nine families did that before
+   * this check existed, and none of them could undo it: a signature is
+   * idempotent, so signing again changed nothing.
+   *
+   * Caught here rather than only on submit so the answer arrives while they
+   * are still looking at the box. The server enforces the same rule; this is
+   * the explanation, not the guard. Both allow the case where one name is
+   * genuinely both — the check is skipped when the two names agree.
+   */
+  const namesAreDistinct = !sameName(ownName, otherName);
+  const typedIsOther = namesAreDistinct && sameName(typed, otherName);
+
+  const canSign =
+    typed.trim().length >= 2 && !typedIsOther && (!needsContact || phone.trim().length > 0);
 
   return (
     <form
@@ -162,15 +213,46 @@ function SignForm({
           your name, the moment you signed, and which version of this document
           you agreed to.
         </span>
+        {/* Whose line this is, said plainly. The label above names a role;
+            this names a person, which is what stops the wrong one signing. */}
+        {ownName ? (
+          <span className="block text-muted text-sm mt-1">
+            This line is for{' '}
+            <b className="text-ink">{ownName}</b>
+            {viewer === 'student' ? ' — the participant.' : ' — the parent or guardian.'}
+          </span>
+        ) : null}
         <input
           type="text"
           className="field-input mt-3 font-serif italic text-lg"
           value={typed}
+          /* Deliberately NOT the expected name: a signature box that shows
+             the answer invites copying it rather than signing. Whose line it
+             is, is said above instead. */
           placeholder="Type your full name"
           disabled={pending}
+          aria-invalid={typedIsOther}
           onChange={(e) => setTyped(e.target.value)}
         />
       </label>
+
+      {typedIsOther ? (
+        <p className="text-sm mt-3 text-accent">
+          {viewer === 'student' ? (
+            <>
+              That is <b>{otherName}</b>’s name, and this line is the
+              participant’s. Type your own name here. Your parent or guardian
+              signs this document themselves, from their own portal — we emailed
+              them a link, and the button below will send it again.
+            </>
+          ) : (
+            <>
+              That is <b>{otherName}</b>’s name, and this line is the parent or
+              guardian’s. Type your own name here.
+            </>
+          )}
+        </p>
+      ) : null}
 
       {error ? <p className="text-sm mt-3 text-accent">{error}</p> : null}
 
@@ -317,6 +399,12 @@ export function AgreementPanel({
                       viewer={env.viewer}
                       initialContact={env.guardianContact}
                       defaultEmail={defaultEmail}
+                      ownName={
+                        env.viewer === 'student' ? env.studentLegalName : env.guardianName
+                      }
+                      otherName={
+                        env.viewer === 'student' ? env.guardianName : env.studentLegalName
+                      }
                       pending={pendingDocument === doc.key}
                       error={errorFor(doc.key)}
                       onSign={(payload) => onSign(doc.key, payload)}

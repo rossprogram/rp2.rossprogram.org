@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../auth/session.js';
+import { discordEnabled } from '../integrations/discord/index.js';
+import { syncMember } from '../services/discord-sync.js';
 import {
   getApplicationDetail,
   getApplicationFile,
@@ -144,6 +146,22 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
           { importId: result.importId, applied: result.applied },
           'offer import published',
         );
+
+        /*
+         * A publish can move a student between sections or groups, which makes
+         * their Discord roles wrong. Re-sync the rows that changed, after the
+         * transaction and without blocking the response — exactly how the
+         * enrolled email is sent after the Stripe webhook commits. A Discord
+         * outage must never fail an import.
+         */
+        if (discordEnabled()) {
+          for (const appId of result.changedAppIds) {
+            void syncMember(appId).catch((err: unknown) => {
+              req.log.error({ err, appId }, 'discord sync after publish failed');
+            });
+          }
+        }
+
         return result;
       } catch (err) {
         return sendOfferError(reply, err);

@@ -14,7 +14,9 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "grant-admin": "tsx src/scripts/grant-admin.ts",
     "export-applications": "tsx src/scripts/export-applications.ts",
-    "refresh-status": "tsx src/scripts/refresh-status.ts"
+    "refresh-status": "tsx src/scripts/refresh-status.ts",
+    "discord-reconcile": "tsx src/scripts/discord-reconcile.ts",
+    "discord-register-commands": "tsx src/scripts/discord-register-commands.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1091.0",

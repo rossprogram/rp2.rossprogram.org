@@ -201,3 +201,84 @@ export function renderEnrolledEmail(params: {
     `,
   };
 }
+
+/*
+ * The nudge, sent to whichever party still owes a signature.
+ *
+ * Deliberately names the other party's state: the common failure is not that
+ * someone refuses to sign, it is that each side assumes the other has. The
+ * student is usually the engaged one, so telling them their guardian is
+ * outstanding is the message most likely to actually move.
+ */
+export function renderSignatureReminderEmail(params: {
+  studentName: string | null;
+  /** Who is being written to. */
+  recipientKind: 'student' | 'guardian';
+  /** What THEY still owe. */
+  ownOutstanding: string[];
+  /** What the OTHER party still owes. */
+  otherOutstanding: string[];
+  portalUrl: string;
+}): RenderedEmail {
+  const who = params.studentName ?? 'your student';
+  const other = params.recipientKind === 'student' ? 'your parent or guardian' : who;
+
+  const lines: string[] = [];
+  if (params.ownOutstanding.length > 0) {
+    lines.push('Still to sign:', ...params.ownOutstanding.map((d) => `  • ${d}`), '');
+  }
+  if (params.otherOutstanding.length > 0) {
+    lines.push(
+      `Still waiting on ${other}:`,
+      ...params.otherOutstanding.map((d) => `  • ${d}`),
+      '',
+    );
+  }
+
+  const subject =
+    params.ownOutstanding.length > 0
+      ? 'Please sign before ℝℙ² classes begin'
+      : `Waiting on ${other} before ℝℙ² classes begin`;
+
+  return {
+    subject,
+    text: [
+      params.recipientKind === 'student'
+        ? 'Classes begin September 27.'
+        : `Classes begin September 27 for ${who}.`,
+      '',
+      'Before then, both the participant and their parent or guardian need to sign the Code of Conduct and the Program Participation Agreement.',
+      '',
+      ...lines,
+      'You can do this in the portal:',
+      params.portalUrl,
+      '',
+      '— Ross Mathematics Foundation',
+    ].join('\n'),
+    html: `
+      <p>${escapeHtml(
+        params.recipientKind === 'student'
+          ? 'Classes begin September 27.'
+          : `Classes begin September 27 for ${who}.`,
+      )}</p>
+      <p>Before then, both the participant and their parent or guardian need to sign the Code of Conduct and the Program Participation Agreement.</p>
+      ${
+        params.ownOutstanding.length > 0
+          ? `<p>Still to sign:</p><ul>${params.ownOutstanding
+              .map((d) => `<li>${escapeHtml(d)}</li>`)
+              .join('')}</ul>`
+          : ''
+      }
+      ${
+        params.otherOutstanding.length > 0
+          ? `<p>Still waiting on ${escapeHtml(other)}:</p><ul>${params.otherOutstanding
+              .map((d) => `<li>${escapeHtml(d)}</li>`)
+              .join('')}</ul>`
+          : ''
+      }
+      <p>You can do this in the portal:</p>
+      <p><a href="${escapeHtml(params.portalUrl)}">${escapeHtml(params.portalUrl)}</a></p>
+      <p>— Ross Mathematics Foundation</p>
+    `,
+  };
+}

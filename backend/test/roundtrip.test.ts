@@ -155,7 +155,7 @@ describe('template round trip', () => {
     const wb = read(buildTemplate('csv'), { type: 'buffer', cellDates: true, raw: true });
     const ws = wb.Sheets[wb.SheetNames[0]!]!;
     const rows = utils.sheet_to_json<Record<string, unknown>>(ws, { raw: true, defval: '' });
-    rows[1]!.section = 'B';
+    rows[1]!.section = 'TOPOLOGY-3';
 
     const edited = utils.book_new();
     utils.book_append_sheet(edited, utils.json_to_sheet(rows), 'offers');
@@ -167,7 +167,7 @@ describe('template round trip', () => {
     expect(p.errorRows).toEqual([]);
     expect(p.changedRows).toHaveLength(1);
     expect(p.changedRows[0]!.changes).toEqual([
-      { field: 'section', column: 'section', before: 'TOPOLOGY-2', after: 'B' },
+      { field: 'section', column: 'section', before: 'TOPOLOGY-2', after: 'TOPOLOGY-3' },
     ]);
   });
 

@@ -517,6 +517,12 @@ function coerce(
         );
         return SKIP;
       }
+      // An empty cell clears the field — the blank-cell rule — so the format
+      // check applies only to a value that is actually there.
+      if (s !== '' && col.pattern && !col.pattern.re.test(s)) {
+        errors.push(issue(rowNo, col.key, 'bad_format', `"${s}" — ${col.pattern.message}`));
+        return SKIP;
+      }
       return s === '' ? null : s;
     }
   }

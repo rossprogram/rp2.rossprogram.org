@@ -124,7 +124,7 @@ async function publishOffer(s: ReturnType<typeof seed>, over: Record<string, str
       student_email: 'student@example.com',
       status: 'accepted',
       course: 'topology',
-      section: 'A',
+      section: 'TOPOLOGY-1',
       group: '5',
       problem_session: 'Sun 09:00',
       office_hours: 'Sat 09:00',
@@ -645,7 +645,7 @@ describe('what publish actually writes', () => {
   it('clears a field when its cell is emptied', async () => {
     const s = seed();
     await publishOffer(s);
-    expect(db.select().from(schema.offer).get()!.section).toBe('A');
+    expect(db.select().from(schema.offer).get()!.section).toBe('TOPOLOGY-1');
 
     const cookie = login(s.adminId);
     const buf = sheetOf([{ app_id: s.appId, section: '', notes: '' }]);

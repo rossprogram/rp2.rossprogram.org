@@ -479,3 +479,80 @@ export async function fetchImports(): Promise<ImportRecord[]> {
   const res = await api.get<{ imports: ImportRecord[] }>('/api/admin/offers/imports');
   return res.imports;
 }
+
+/* ==================== agreements ==================== */
+
+export type AgreementBlock =
+  | { kind: 'p'; text: string }
+  | { kind: 'list'; items: string[] };
+
+export type AgreementDoc = {
+  key: string;
+  version: string;
+  title: string;
+  signers: ('student' | 'guardian')[];
+  signatureLabel: Record<'student' | 'guardian', string>;
+  collectsGuardianContact: boolean;
+  sections: { heading: string | null; blocks: AgreementBlock[] }[];
+};
+
+export type SignatureRecord = {
+  document: string;
+  signerKind: 'student' | 'guardian';
+  typedName: string;
+  signedAt: number;
+  documentVersion: string;
+  stale: boolean;
+};
+
+export type Outstanding = { document: string; signerKind: 'student' | 'guardian' };
+
+export type AgreementEnvelope = {
+  applicationId: string;
+  documents: AgreementDoc[];
+  signatures: SignatureRecord[];
+  outstanding: Outstanding[];
+  fullySigned: boolean;
+  guardianContact: { email: string; phone: string; altPhone: string | null } | null;
+  enrolled: boolean;
+  studentName: string | null;
+  studentLegalName: string | null;
+  viewer: 'student' | 'guardian';
+  /** What the viewer still owes. */
+  mine: Outstanding[];
+  /** What the other party still owes — drives the nudge. */
+  theirs: Outstanding[];
+  discord?: {
+    enabled: boolean;
+    linked: boolean;
+    username: string | null;
+    joined: boolean;
+  };
+};
+
+export type SignPayload = {
+  typedName: string;
+  contact?: { email: string; phone: string; altPhone: string | null };
+};
+
+export function fetchAgreements() {
+  return api.get<AgreementEnvelope>('/api/agreements');
+}
+
+export function signAgreement(document: string, payload: SignPayload) {
+  return api.post<AgreementEnvelope & { created: boolean }>(
+    `/api/agreements/${document}/sign`,
+    payload,
+  );
+}
+
+export function fetchGuardianAgreements(appId: string) {
+  return api.get<AgreementEnvelope>(`/api/parent/applicant/${appId}/agreements`);
+}
+
+export function signGuardianAgreement(appId: string, document: string, payload: SignPayload) {
+  return api.post<AgreementEnvelope & { created: boolean }>(
+    `/api/parent/applicant/${appId}/agreements/${document}/sign`,
+    payload,
+  );
+}

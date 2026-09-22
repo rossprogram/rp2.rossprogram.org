@@ -71,6 +71,20 @@ export { deriveStatus };
 /** Statuses deriveStatus() owns; everything else is a human decision. */
 const DERIVED = new Set<string>(DERIVED_STATUSES);
 
+/**
+ * Is this student actually enrolled?
+ *
+ * Computed from the authoritative pair rather than read off
+ * application.status, which is a denormalization — and which spent six days
+ * disagreeing with the offer for one family in September 2026. Anything that
+ * gates access on enrollment should ask this.
+ */
+export function isEnrolled(applicationId: string): boolean {
+  const o = db.select().from(offer).where(eq(offer.applicationId, applicationId)).get();
+  if (!o) return false;
+  return deriveStatus(o, paidCentsFor(applicationId)) === 'enrolled';
+}
+
 export function paidCentsFor(applicationId: string): number {
   const row = db
     .select({ total: sql<number>`COALESCE(SUM(${payment.amountCents}), 0)` })

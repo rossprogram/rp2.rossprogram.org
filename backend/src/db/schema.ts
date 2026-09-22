@@ -346,3 +346,124 @@ export const offerImport = sqliteTable('offer_import', {
   notifiedAt: integer('notified_at'),
   notifiedCount: integer('notified_count'),
 });
+
+/*
+ * ==================== agreements and Discord ====================
+ */
+
+/*
+ * One row per (application, document, signer). Four rows is a complete family:
+ * the code of conduct and the participation agreement, each acknowledged by
+ * the student and by the guardian.
+ *
+ * Deliberately NOT an application_response row like the application's own
+ * signature questions. Those store a client-supplied timestamp (or, for the
+ * guardian, no timestamp at all) against an unversioned page, which cannot
+ * answer "what exactly did they agree to, and when". A consent record that
+ * cannot answer that is not worth keeping.
+ */
+export const agreementSignature = sqliteTable(
+  'agreement_signature',
+  {
+    id: text('id').primaryKey(),
+    applicationId: text('application_id')
+      .notNull()
+      .references(() => application.id, { onDelete: 'cascade' }),
+    document: text('document', {
+      enum: ['code_of_conduct', 'participation_agreement'],
+    }).notNull(),
+    signerKind: text('signer_kind', { enum: ['student', 'guardian'] }).notNull(),
+    // Who actually clicked — not who was supposed to. A guardian signing from
+    // their own portal and a student signing from theirs are different rows
+    // with different user ids, and that is the point.
+    signerUserId: text('signer_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    typedName: text('typed_name').notNull(),
+    // What was on the screen: the declared version, plus a hash of the text
+    // itself, so an edit without a version bump is still detectable later.
+    documentVersion: text('document_version').notNull(),
+    documentHash: text('document_hash').notNull(),
+    // Server clock. Never the browser's.
+    signedAt: integer('signed_at').notNull().default(nowSql),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+  },
+  (t) => ({
+    // Re-signing is an idempotent no-op, not a second row.
+    oneEach: uniqueIndex('agreement_signature_unique_idx').on(
+      t.applicationId,
+      t.document,
+      t.signerKind,
+    ),
+    applicationIdx: index('agreement_signature_application_idx').on(t.applicationId),
+  }),
+);
+
+/*
+ * The contact block inside the participation agreement.
+ *
+ * Separate from the signature because it is live operational data, not
+ * evidence: staff need to reach this guardian during the term, and the
+ * guardian may update a phone number without re-signing anything.
+ *
+ * This is the ONLY place a guardian phone number is ever collected — the
+ * application form has never asked for one.
+ */
+export const guardianContact = sqliteTable('guardian_contact', {
+  applicationId: text('application_id')
+    .primaryKey()
+    .references(() => application.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  phone: text('phone').notNull(),
+  altPhone: text('alt_phone'),
+  updatedAt: integer('updated_at').notNull().default(nowSql),
+});
+
+/*
+ * A verified Discord account belonging to a portal user.
+ *
+ * Keyed on user_id rather than application_id because a guardian could in
+ * principle link one too; only students are synced today.
+ */
+export const discordLink = sqliteTable(
+  'discord_link',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // One Discord account cannot stand in for two students — the uniqueness
+    // is declared once, as an index below.
+    discordUserId: text('discord_user_id').notNull(),
+    discordUsername: text('discord_username'),
+    linkedAt: integer('linked_at').notNull().default(nowSql),
+    joinedGuildAt: integer('joined_guild_at'),
+    lastSyncAt: integer('last_sync_at'),
+    // Last failure, kept so the admin screen can show why someone is stuck
+    // rather than silently showing nothing.
+    lastSyncError: text('last_sync_error'),
+  },
+  (t) => ({
+    discordIdx: uniqueIndex('discord_link_discord_idx').on(t.discordUserId),
+  }),
+);
+
+/*
+ * Section and group roles the bot created in the guild, so it never has to
+ * match roles by name at runtime. Names are display; ids are identity.
+ */
+export const discordRole = sqliteTable(
+  'discord_role',
+  {
+    id: text('id').primaryKey(),
+    kind: text('kind', { enum: ['section', 'group'] }).notNull(),
+    // 'QUADRATIC-2' for a section, 'QUADRATIC-2/3' for a group.
+    key: text('key').notNull(),
+    roleId: text('role_id').notNull(),
+    name: text('name').notNull(),
+    createdAt: integer('created_at').notNull().default(nowSql),
+  },
+  (t) => ({
+    kindKeyUnique: uniqueIndex('discord_role_kind_key_idx').on(t.kind, t.key),
+  }),
+);

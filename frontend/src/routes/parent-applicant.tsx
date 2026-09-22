@@ -17,6 +17,7 @@ import {
   type ApplicationFile,
 } from '../api/client';
 import { OfferPanel } from '../features/offer/OfferPanel';
+import { GuardianAgreements } from '../features/agreements/GuardianAgreements';
 
 async function ensureGuardian() {
   const me = await fetchMe();
@@ -83,6 +84,9 @@ function GuardianApplicantPage() {
 
       {/* Renders nothing until there is an offer the family has been told about. */}
       <OfferPanel appId={appId} />
+
+      {/* Likewise: nothing to agree to until there is a place to agree about. */}
+      <GuardianAgreements appId={appId} />
 
       <ProgramFacts />
 

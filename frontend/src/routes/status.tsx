@@ -105,6 +105,13 @@ function StatusPage() {
       </p>
 
       <div className="flex items-center gap-4">
+        {/* Once there is an offer, the agreements are the next thing to do —
+            and the thing that gates taking part at all. */}
+        {offerLed && status !== 'declined' ? (
+          <Link to="/agreements" className="btn btn-primary no-underline">
+            Program agreements →
+          </Link>
+        ) : null}
         <Link to="/apply" className="btn btn-ghost no-underline">
           Review my responses
         </Link>

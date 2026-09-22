@@ -13,6 +13,9 @@ import { registerParentRoutes } from './routes/parent.js';
 import { registerUploadRoutes } from './routes/uploads.js';
 import { registerOfferRoutes } from './routes/offer.js';
 import { registerStripeWebhookRoutes } from './routes/stripe-webhook.js';
+import { registerAgreementRoutes } from './routes/agreements.js';
+import { registerDiscordRoutes } from './routes/discord.js';
+import { registerAdminOnboardingRoutes } from './routes/admin-onboarding.js';
 import { initStripe } from './integrations/stripe/index.js';
 import { attachSession } from './auth/session.js';
 import { runMigrations } from './db/migrate.js';
@@ -52,6 +55,9 @@ export async function build() {
   await registerUploadRoutes(app);
   await registerOfferRoutes(app);
   await registerStripeWebhookRoutes(app);
+  await registerAgreementRoutes(app);
+  await registerDiscordRoutes(app);
+  await registerAdminOnboardingRoutes(app);
 
   return app;
 }
@@ -64,7 +70,17 @@ async function main() {
   await app.listen({ port: env.PORT, host: env.HOST });
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+/*
+ * Only start listening when this file IS the process, not when a test imports
+ * build(). Without the guard every test file that imports the server races for
+ * port 3000, and the loser exits the whole worker. Same idiom as migrate.ts.
+ */
+const invokedDirectly =
+  import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('server.ts');
+
+if (invokedDirectly) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

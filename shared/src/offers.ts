@@ -18,11 +18,17 @@ export const PROGRAM_TIMEZONE = 'America/New_York';
 /** Working tuition figure for the pilot; see planning/Ross Projective Overview-2.txt. */
 export const TUITION_CENTS = 150_000;
 
+/*
+ * `roleName` and `abbrev` exist for Discord: a section role reads
+ * 'Quadratic-Forms-2' and its group roles read 'QF-2-Group-3'. Both are
+ * derived, never typed by hand, so a role name can never drift from the
+ * course it belongs to. See sectionRoleName()/groupRoleName() in discord.ts.
+ */
 export const COURSES = [
-  { key: 'topology', label: 'Point-Set Topology' },
-  { key: 'ggt', label: 'Geometric Group Theory' },
-  { key: 'cgt', label: 'Combinatorial Game Theory' },
-  { key: 'quadratic', label: 'Quadratic Forms' },
+  { key: 'topology', label: 'Point-Set Topology', roleName: 'Point-Set-Topology', abbrev: 'PST' },
+  { key: 'ggt', label: 'Geometric Group Theory', roleName: 'Geometric-Group-Theory', abbrev: 'GGT' },
+  { key: 'cgt', label: 'Combinatorial Game Theory', roleName: 'Combinatorial-Game-Theory', abbrev: 'CGT' },
+  { key: 'quadratic', label: 'Quadratic Forms', roleName: 'Quadratic-Forms', abbrev: 'QF' },
 ] as const;
 
 export type CourseKey = (typeof COURSES)[number]['key'];
@@ -266,6 +272,13 @@ export type OfferImportColumn = {
   /** Shown in the template's help row and the preview legend. */
   help: string;
   maxLength?: number;
+  /**
+   * Optional format constraint for a `string` column. Used where a value is
+   * not merely displayed but PARSED downstream — section and group names
+   * become Discord role names, so 'topology 2 (Tues)' in a spreadsheet cell
+   * would otherwise mint a garbage role for 24 students.
+   */
+  pattern?: { re: RegExp; message: string };
 };
 
 /**
@@ -449,7 +462,11 @@ export const OFFER_IMPORT_COLUMNS: readonly OfferImportColumn[] = [
     field: 'section',
     type: 'string',
     maxLength: 40,
-    help: 'Free text, e.g. "TOPOLOGY-2". Shown to the family.',
+    pattern: {
+      re: /^[A-Z]+-[0-9]+$/,
+      message: 'Use the form COURSE-N, e.g. "TOPOLOGY-2" — it becomes a Discord role name.',
+    },
+    help: 'e.g. "TOPOLOGY-2". Shown to the family, and becomes a Discord role.',
   },
   {
     key: 'group',
@@ -458,7 +475,11 @@ export const OFFER_IMPORT_COLUMNS: readonly OfferImportColumn[] = [
     field: 'cohort',
     type: 'string',
     maxLength: 40,
-    help: 'Breakout group within the section, e.g. "5". Shown to the family.',
+    pattern: {
+      re: /^[0-9]+$/,
+      message: 'Use a number, e.g. "5" — it becomes a Discord role name.',
+    },
+    help: 'Breakout group within the section, e.g. "5". Shown to the family, and becomes a Discord role.',
   },
   {
     key: 'problem_session',

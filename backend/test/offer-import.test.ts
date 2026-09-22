@@ -203,6 +203,43 @@ describe('field validation', () => {
     expect(preview.errorRows[0]!.errors[0]!.code).toBe('too_long');
   });
 
+  /*
+   * Section and group are not merely displayed — they become Discord role
+   * names. A cell like 'topology 2 (Tues)' would mint a role nobody intended
+   * for two dozen students, so the format is constrained at the door.
+   */
+  it('rejects a section that is not COURSE-N', () => {
+    for (const bad of ['topology 2 (Tues)', 'A', 'Topology-2', 'TOPOLOGY 2']) {
+      const { preview } = run([{ ...OK_ROW, section: bad }], snapshot(app()));
+      expect(preview.errorRows[0]!.errors[0]!.code).toBe('bad_format');
+    }
+  });
+
+  it('accepts the section names actually in use', () => {
+    for (const good of ['TOPOLOGY-2', 'QUADRATIC-1', 'CGT-2', 'GGT-1']) {
+      const { preview } = run([{ ...OK_ROW, section: good }], snapshot(app()));
+      expect(preview.errorRows).toEqual([]);
+    }
+  });
+
+  it('rejects a group that is not a number', () => {
+    const { preview } = run([{ ...OK_ROW, group: 'B' }], snapshot(app()));
+    expect(preview.errorRows[0]!.errors[0]!.code).toBe('bad_format');
+  });
+
+  /* The blank-cell rule still means "clear it", not "reject it". */
+  it('still allows an empty section cell to clear the field', () => {
+    const current = app({ offer: offerOf({ section: 'TOPOLOGY-2' }) });
+    const { preview } = run([{ ...OK_ROW, section: '' }], snapshot(current));
+    expect(preview.errorRows).toEqual([]);
+    expect(preview.changedRows[0]!.changes).toContainEqual({
+      field: 'section',
+      column: 'section',
+      before: 'TOPOLOGY-2',
+      after: null,
+    });
+  });
+
   it('rejects an unknown status', () => {
     const { preview } = run([{ app_id: 'A1', status: 'maybe' }], snapshot(app()));
     expect(preview.errorRows[0]!.errors[0]!.code).toBe('unknown_value');

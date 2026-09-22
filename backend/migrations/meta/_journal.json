@@ -43,6 +43,13 @@
       "when": 1788393129606,
       "tag": "0005_offers_and_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790019132839,
+      "tag": "0006_agreements_and_discord",
+      "breakpoints": true
     }
   ]
 }

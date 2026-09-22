@@ -21,6 +21,7 @@ import { adminIndexRoute } from './routes/admin';
 import { adminApplicationRoute } from './routes/admin-application';
 import { adminOffersRoute } from './routes/admin-offers';
 import { adminOnboardingRoute } from './routes/admin-onboarding';
+import { mentorRoute } from './routes/mentor';
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -43,4 +44,5 @@ export const routeTree = rootRoute.addChildren([
   adminApplicationRoute,
   adminOffersRoute,
   adminOnboardingRoute,
+  mentorRoute,
 ]);

@@ -70,16 +70,25 @@ export function UserMenu() {
               Admin
             </MenuLink>
           )}
+          {(me.data.roles.includes('mentor') || me.data.roles.includes('assistant')) && (
+            <MenuLink to="/mentor" onClick={() => setOpen(false)}>
+              My sections
+            </MenuLink>
+          )}
           {me.data.roles.includes('guardian') && (
             <MenuLink to="/parent" onClick={() => setOpen(false)}>
               Parent portal
             </MenuLink>
           )}
-          {!me.data.roles.includes('guardian') && (
-            <MenuLink to="/apply" onClick={() => setOpen(false)}>
-              My application
-            </MenuLink>
-          )}
+          {/* Staff who also hold `applicant` from an abandoned application of
+              their own should not be sent to an application form. */}
+          {!me.data.roles.includes('guardian') &&
+            !me.data.roles.includes('mentor') &&
+            !me.data.roles.includes('assistant') && (
+              <MenuLink to="/apply" onClick={() => setOpen(false)}>
+                My application
+              </MenuLink>
+            )}
           <button
             role="menuitem"
             className="block w-full text-left px-4 py-2.5 hover:bg-accent-soft text-ink"
@@ -101,7 +110,7 @@ function MenuLink({
   children,
   onClick,
 }: {
-  to: '/apply' | '/parent' | '/admin';
+  to: '/apply' | '/parent' | '/admin' | '/mentor';
   children: React.ReactNode;
   onClick: () => void;
 }) {

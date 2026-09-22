@@ -79,6 +79,27 @@ export function sessionTtlSeconds(): number {
   return SESSION_TTL_SECONDS;
 }
 
+/**
+ * Any one of several roles will do.
+ *
+ * `requireAuth(role)` takes exactly one, but "staff" is three — a mentor, a
+ * course assistant, or an admin — and a person can hold several at once
+ * (three of the course assistants also have `applicant` from an abandoned
+ * application of their own).
+ */
+export function requireAnyRole(...roles: Role[]) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    if (!req.currentUser) {
+      reply.code(401).send({ error: 'unauthenticated' });
+      return;
+    }
+    if (!roles.some((r) => req.currentUser!.roles.includes(r))) {
+      reply.code(403).send({ error: 'forbidden' });
+      return;
+    }
+  };
+}
+
 export function requireAuth(role?: Role) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
     if (!req.currentUser) {

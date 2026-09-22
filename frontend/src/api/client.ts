@@ -612,3 +612,38 @@ export function sendReminders(body: { applicationIds?: string[]; dryRun: boolean
 export function reconcileDiscord(body: { dryRun: boolean; allowCreate?: boolean }) {
   return api.post<ReconcileResult>('/api/admin/discord/reconcile', body);
 }
+
+/* ==================== mentor portal ==================== */
+
+export type MentorStudent = {
+  applicationId: string;
+  preferredName: string | null;
+  legalName: string | null;
+  email: string;
+  guardianEmail: string | null;
+  cohort: string | null;
+  timezone: string | null;
+  fullySigned: boolean;
+  outstandingSignatures: number;
+  discord: 'joined' | 'linked' | 'none';
+};
+
+export type MentorSection = {
+  id: string;
+  label: string;
+  courseKey: string;
+  courseLabel: string | null;
+  myRole: 'mentor' | 'assistant' | 'admin';
+  schedule: { kind: string; when: string | null }[];
+  nextSession: { kind: string; date: string; startsAt: number } | null;
+  students: MentorStudent[];
+};
+
+export type MentorView = {
+  viewingAs: 'admin' | 'mentor' | 'assistant';
+  sections: MentorSection[];
+};
+
+export function fetchMentorView() {
+  return api.get<MentorView>('/api/mentor/me');
+}

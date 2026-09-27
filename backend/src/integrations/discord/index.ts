@@ -10,7 +10,7 @@ import { env } from '../../env.js';
  *   - joining      OAuth2 `guilds.join` + PUT /guilds/{g}/members/{u}
  *   - roles        PUT/DELETE /guilds/{g}/members/{u}/roles/{r}
  *   - nicknames    PATCH /guilds/{g}/members/{u}
- *   - /whois       HTTP Interactions, signature-verified like a webhook
+ *   - /whois, /role HTTP Interactions, signature-verified like a webhook
  *
  * We never need a gateway event because we add members ourselves rather than
  * waiting to notice them arrive. That keeps the deployment at one process.
@@ -259,14 +259,17 @@ export async function listGuildRoles(): Promise<GuildRole[]> {
   }));
 }
 
-export async function createGuildRole(name: string): Promise<{ id: string }> {
+export async function createGuildRole(
+  name: string,
+  opts: { mentionable?: boolean } = {},
+): Promise<{ id: string }> {
   const { guildId } = config();
   const { json } = await rest('POST', `/guilds/${guildId}/roles`, {
     name,
     // No extra permissions: a section role is for visibility and mentions.
     // Channel access is granted per channel in the server settings.
     permissions: '0',
-    mentionable: true,
+    mentionable: opts.mentionable ?? true,
   });
   const r = json as { id?: string };
   if (!r.id) throw new DiscordError(502, 'no_role_id', 'Discord created a role with no id.');

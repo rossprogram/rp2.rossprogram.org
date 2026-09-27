@@ -17,6 +17,7 @@
     "refresh-status": "tsx src/scripts/refresh-status.ts",
     "discord-reconcile": "tsx src/scripts/discord-reconcile.ts",
     "discord-register-commands": "tsx src/scripts/discord-register-commands.ts",
+    "discord-country-roles": "tsx src/scripts/discord-country-roles.ts",
     "backfill-sections": "tsx src/scripts/backfill-sections.ts",
     "grant-staff": "tsx src/scripts/grant-staff.ts",
     "normalize-timezones": "tsx src/scripts/normalize-timezones.ts",

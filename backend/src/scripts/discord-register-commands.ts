@@ -1,5 +1,5 @@
 /*
- * discord-register-commands: tell Discord that /whois exists.
+ * discord-register-commands: tell Discord that /whois and /role exist.
  *
  * Slash commands are registered once per guild, out of band — the running
  * server never does this, because re-registering on every boot is how you
@@ -28,6 +28,22 @@ const COMMANDS = [
         name: 'member',
         description: 'The member to look up',
         required: true,
+      },
+    ],
+  },
+  {
+    name: 'role',
+    description: 'Show your country with a flag role — run it again to remove it',
+    options: [
+      {
+        // Type 3 is STRING. Optional: left out, it uses the country on the
+        // application. Autocomplete offers only roles that already exist, so
+        // nobody can conjure a new one by typing.
+        type: 3,
+        name: 'country',
+        description: 'Pick a different country',
+        required: false,
+        autocomplete: true,
       },
     ],
   },

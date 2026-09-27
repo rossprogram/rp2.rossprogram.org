@@ -433,6 +433,28 @@ describe('syncing a member', () => {
     expect(guild.members.get('discord-ada')!.roleIds).toContain('some-staff-role');
   });
 
+  /*
+   * Country roles share the discord_role table with section roles, but the
+   * student chose theirs with /role. A reconcile that treated every recorded
+   * role as managed would strip it from every student, every run.
+   */
+  it('leaves a self-chosen country role alone, though the bot recorded it', async () => {
+    const s = seed();
+    signEverything(s);
+    await ensureRoles({ allowCreate: true });
+    saveLink({ userId: s.studentId, discordUserId: 'discord-ada', username: 'ada' });
+    await syncMember(s.appId, { accessToken: 'access-token' });
+
+    db.insert(schema.discordRole)
+      .values({ id: nanoid(), kind: 'country', key: 'CN', roleId: 'role-cn', name: '🇨🇳 China' })
+      .run();
+    guild.members.get('discord-ada')!.roleIds.push('role-cn');
+
+    const outcome = await syncMember(s.appId);
+    expect(outcome.status).toBe('unchanged');
+    expect(guild.members.get('discord-ada')!.roleIds).toContain('role-cn');
+  });
+
   it('is a no-op when everything already matches', async () => {
     const s = seed();
     signEverything(s);

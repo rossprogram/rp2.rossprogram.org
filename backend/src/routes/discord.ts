@@ -18,6 +18,7 @@ import {
   saveLink,
   syncMember,
 } from '../services/discord-sync.js';
+import { countryChoices, toggleCountryRole } from '../services/discord-country.js';
 import { studentNamesFor } from '../services/names.js';
 
 /*
@@ -52,11 +53,11 @@ function redirectUri(): string {
   return `${env.APP_URL}/api/discord/callback`;
 }
 
-/* ==================== /whois ==================== */
+/* ==================== slash commands ==================== */
 
 type InteractionData = {
   type: number;
-  data?: { name?: string; options?: { name: string; value: unknown }[] };
+  data?: { name?: string; options?: { name: string; value: unknown; focused?: boolean }[] };
   member?: { user?: { id?: string }; roles?: string[] };
   user?: { id?: string };
 };
@@ -252,6 +253,32 @@ export async function registerDiscordRoutes(app: FastifyInstance): Promise<void>
           const target = typeof option?.value === 'string' ? option.value : null;
           if (!target) return reply('Usage: /whois <member>');
           return reply(whoisResponse(target, callerIsStaff(interaction)));
+        }
+
+        // APPLICATION_COMMAND_AUTOCOMPLETE: the caller is typing a country.
+        if (interaction.type === 4 && interaction.data?.name === 'role') {
+          const option = interaction.data.options?.find((o) => o.name === 'country');
+          const typed = typeof option?.value === 'string' ? option.value : '';
+          return { type: 8, data: { choices: countryChoices(typed) } };
+        }
+
+        if (interaction.type === 2 && interaction.data?.name === 'role') {
+          const caller = interaction.member?.user?.id;
+          // No `member` means a DM: there is no guild to hold the role.
+          if (!caller) return reply('Use /role inside the program server.');
+          const option = interaction.data.options?.find((o) => o.name === 'country');
+          try {
+            return reply(
+              await toggleCountryRole({
+                discordUserId: caller,
+                memberRoleIds: interaction.member?.roles ?? [],
+                requested: typeof option?.value === 'string' ? option.value : null,
+              }),
+            );
+          } catch (err) {
+            req.log.error({ err }, 'discord /role failed');
+            return reply('Something went wrong changing your role. Please tell a staff member.');
+          }
         }
 
         // Anything else: acknowledge rather than error, so an unknown command

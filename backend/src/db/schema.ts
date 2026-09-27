@@ -499,15 +499,19 @@ export const discordLink = sqliteTable(
 );
 
 /*
- * Section and group roles the bot created in the guild, so it never has to
- * match roles by name at runtime. Names are display; ids are identity.
+ * Section, group and country roles the bot created in the guild, so it never
+ * has to match roles by name at runtime. Names are display; ids are identity.
+ *
+ * Country roles are self-service (/role) and never touched by the section
+ * sync — see managedRoleIds in services/discord-sync.ts.
  */
 export const discordRole = sqliteTable(
   'discord_role',
   {
     id: text('id').primaryKey(),
-    kind: text('kind', { enum: ['section', 'group'] }).notNull(),
-    // 'QUADRATIC-2' for a section, 'QUADRATIC-2/3' for a group.
+    kind: text('kind', { enum: ['section', 'group', 'country'] }).notNull(),
+    // 'QUADRATIC-2' for a section, 'QUADRATIC-2/3' for a group, 'CN' for a
+    // country.
     key: text('key').notNull(),
     roleId: text('role_id').notNull(),
     name: text('name').notNull(),

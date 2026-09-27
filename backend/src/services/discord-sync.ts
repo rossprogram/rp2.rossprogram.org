@@ -12,7 +12,7 @@
  * mentor mid-session.
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import {
   discordNickname,
@@ -192,9 +192,22 @@ async function resolveRoleIdsFromGuild(desired: DesiredState): Promise<string[] 
   return ids;
 }
 
-/** Every role id the bot manages — used to tell "ours" from "theirs". */
+/**
+ * Every role id the sync manages — used to tell "ours" from "theirs".
+ *
+ * Section and group only. Country roles live in the same table but belong to
+ * the student, who picks one with /role; a sync that stripped them would undo
+ * that choice on every reconcile.
+ */
 function managedRoleIds(): Set<string> {
-  return new Set(db.select({ roleId: discordRole.roleId }).from(discordRole).all().map((r) => r.roleId));
+  return new Set(
+    db
+      .select({ roleId: discordRole.roleId })
+      .from(discordRole)
+      .where(inArray(discordRole.kind, ['section', 'group']))
+      .all()
+      .map((r) => r.roleId),
+  );
 }
 
 export type SyncOutcome =

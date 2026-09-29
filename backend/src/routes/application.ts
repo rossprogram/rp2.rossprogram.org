@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { UpsertResponsesBody } from '@rp2/shared';
+import { APPLICATIONS_OPEN, UpsertResponsesBody } from '@rp2/shared';
 import { requireAuth } from '../auth/session.js';
 import {
   ApplicationLocked,
+  ApplicationsClosed,
   GuardianEmailLocked,
   getOrCreateApplication,
   loadApplicationView,
@@ -102,6 +103,9 @@ export async function registerApplicationRoutes(app: FastifyInstance): Promise<v
         );
         return { updatedAt };
       } catch (err) {
+        if (err instanceof ApplicationsClosed) {
+          return reply.code(409).send({ error: 'applications_closed' });
+        }
         if (err instanceof ApplicationLocked) {
           return reply.code(409).send({ error: 'application_locked', status: err.status });
         }
@@ -120,6 +124,9 @@ export async function registerApplicationRoutes(app: FastifyInstance): Promise<v
       try {
         return submitApplication(req.currentUser!.id);
       } catch (err) {
+        if (err instanceof ApplicationsClosed) {
+          return reply.code(409).send({ error: 'applications_closed' });
+        }
         if (err instanceof ApplicationLocked) {
           return reply.code(409).send({ error: 'application_locked', status: err.status });
         }
@@ -149,6 +156,9 @@ export async function registerApplicationRoutes(app: FastifyInstance): Promise<v
       if (appRow.status !== 'draft') {
         return reply.code(409).send({ error: 'application_locked', status: appRow.status });
       }
+      if (!APPLICATIONS_OPEN) {
+        return reply.code(409).send({ error: 'applications_closed' });
+      }
       const row = await registerFile({
         applicationId: appRow.id,
         kind: parsed.data.kind,
@@ -170,6 +180,9 @@ export async function registerApplicationRoutes(app: FastifyInstance): Promise<v
       const appRow = getOrCreateApplication(req.currentUser!.id);
       if (appRow.status !== 'draft') {
         return reply.code(409).send({ error: 'application_locked', status: appRow.status });
+      }
+      if (!APPLICATIONS_OPEN) {
+        return reply.code(409).send({ error: 'applications_closed' });
       }
       const ok = await deleteFile(appRow.id, id);
       if (!ok) return reply.code(404).send({ error: 'not_found' });

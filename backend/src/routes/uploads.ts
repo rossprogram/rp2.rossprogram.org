@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { env } from '../env.js';
 import { requireAuth } from '../auth/session.js';
+import { APPLICATIONS_OPEN } from '@rp2/shared';
 import { getOrCreateApplication } from '../services/applications.js';
 import { requestSignedUpload } from '../services/uploads.js';
 import { putObject, verifyPutParams } from '../integrations/storage/local.js';
@@ -32,6 +33,10 @@ export async function registerUploadRoutes(app: FastifyInstance): Promise<void> 
       if (!parsed.success) return reply.code(400).send({ error: 'invalid_body' });
       const userId = req.currentUser!.id;
       const appRow = getOrCreateApplication(userId);
+      // The applicant's own uploads only ever go to a draft.
+      if (!APPLICATIONS_OPEN && appRow.status === 'draft') {
+        return reply.code(409).send({ error: 'applications_closed' });
+      }
       const result = await requestSignedUpload({
         userId,
         applicationId: appRow.id,

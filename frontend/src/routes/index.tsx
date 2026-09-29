@@ -14,7 +14,7 @@ function IndexPage() {
 			<main className="max-w-3xl mx-auto px-6">
 				<About />
 				<Week />
-				<WhoShouldApply />
+				<WhoItsFor />
 				<Admissions />
 				<Tuition />
 			</main>
@@ -41,46 +41,41 @@ function Hero({ signedIn }: { signedIn: boolean }) {
 					ℝℙ²
 				</h1>
 				<p className="mt-6 text-[clamp(1.15rem,2.4vw,1.4rem)] leading-snug max-w-[32ch]">
-					A ten-week experience of proof-based mathematics. For high-school
-					students. September 27 through December 12, 2026, with a break for
-					US Thanksgiving.
+					A ten-week experience of proof-based mathematics for high-school
+					students. Our first term is underway: September 27 through December
+					12, 2026, with a break for US Thanksgiving.
 				</p>
-				<p className="mt-6 font-sans text-sm text-muted">
-					The priority deadline was{" "}
-					<b className="text-ink font-normal">August 21</b>. We are still
-					accepting applications on a rolling basis while seats remain.
-				</p>
+				<div className="mt-8 max-w-[44ch] pl-5 py-4 pr-5 bg-accent-soft border-l-2 border-accent">
+					<span className="smallcaps text-accent block mb-1">
+						Applications are closed
+					</span>
+					We&rsquo;re not accepting new applications right now. We expect to
+					open another round of applications in the future.
+				</div>
 				<div className="mt-8 flex flex-wrap gap-4">
-					{signedIn ? (
-						<Link to="/apply" className="btn btn-primary no-underline">
-							Go to my application →
-						</Link>
-					) : (
-						<Link to="/auth/request" className="btn btn-primary no-underline">
-							Start an application
-						</Link>
-					)}
+					<AccountLink signedIn={signedIn} />
 					<Link to="/courses" className="btn btn-ghost no-underline">
 						See the courses
 					</Link>
 				</div>
-				{!signedIn && (
-					<p className="mt-4 text-sm text-muted">
-						Parent or guardian?{" "}
-						<Link
-							to="/auth/request"
-							search={{ role: "guardian" }}
-							className="text-ink underline underline-offset-2 hover:no-underline"
-						>
-							Register here →
-						</Link>
-					</p>
-				)}
 			</div>
 		</section>
 	);
 }
 
+// Families already in the program still sign in from here; there is just no
+// "start an application" while applications are closed.
+function AccountLink({ signedIn }: { signedIn: boolean }) {
+	return signedIn ? (
+		<Link to="/apply" className="btn btn-primary no-underline">
+			Go to my account →
+		</Link>
+	) : (
+		<Link to="/auth/request" className="btn btn-primary no-underline">
+			Sign in
+		</Link>
+	);
+}
 
 function SectionHead({
 	n,
@@ -190,8 +185,8 @@ function Week() {
 		<section id="week" className="pt-14">
 			<SectionHead n={2}>A week at ℝℙ²</SectionHead>
 			<p>
-				Courses meet at a fixed weekly time, which we set once we know when
-				admitted students are actually available.
+				Each course meets at a fixed weekly time, which we set once we knew
+				when admitted students were actually available.
 			</p>
 			<div className="mt-6 border-t border-rule">
 				{rows.map(([when, what], i) => (
@@ -214,10 +209,10 @@ function Week() {
 	);
 }
 
-function WhoShouldApply() {
+function WhoItsFor() {
 	return (
 		<section id="who" className="pt-14">
-			<SectionHead n={3}>Who should apply</SectionHead>
+			<SectionHead n={3}>Who it&rsquo;s for</SectionHead>
 			<p>
 				High-school students, anywhere in the world, who want to dig into some
 				math. <b>You do not need to have written proofs before.</b> Some Ross
@@ -228,7 +223,7 @@ function WhoShouldApply() {
 				The thing we actually look for is whether you like being stuck &mdash;
 				whether you&rsquo;ll sit with a problem for a really long time. If you
 				have ever been unable to put a math problem down even while you were
-				stuck, please apply.
+				stuck, we hope you&rsquo;ll apply when applications open again.
 			</p>
 			<Note label="Relationship to the residential program">
 				ℝℙ² is a separate activity from the residential, in-person summer
@@ -245,34 +240,37 @@ function WhoShouldApply() {
 function Admissions() {
 	const items: [string, React.ReactNode][] = [
 		[
-			"Through August 21",
+			"August 21",
 			<>
-				Priority application window. This deadline has now passed, but{" "}
-				<b>we are still accepting applications</b> on a rolling basis while
-				seats remain.
+				Priority application deadline. Late applications were reviewed on a
+				rolling basis while seats remained.
 			</>,
 		],
 		[
-			"September 5",
+			"September",
 			<>
-				First-round offers are expected to go out, with course placement,
-				meeting time, and financial-aid decision. Late applications continue to
-				be reviewed as they arrive.
-			</>,
-		],
-		[
-			"Mid-September",
-			<>
-				Families confirm enrollment; students get added to the course page,
-				Discord, and Gradescope. If seats remain, we go to the waitlist and late
-				applicants.
+				Offers went out with course placement, meeting time, and financial-aid
+				decision, and families confirmed enrollment.
 			</>,
 		],
 		[
 			"September 27",
 			<>
-				Classes start. Ten weeks of instruction, one week off at Thanksgiving,
-				done December 12.
+				Classes started. We&rsquo;re in the middle of our first term now.
+			</>,
+		],
+		[
+			"December 12",
+			<>
+				The term ends, after ten weeks of instruction and one week off at
+				Thanksgiving.
+			</>,
+		],
+		[
+			"In the future",
+			<>
+				We expect to open another round of applications. Check back here, or
+				write to us and we&rsquo;ll let you know when it opens.
 			</>,
 		],
 	];
@@ -280,19 +278,19 @@ function Admissions() {
 		<section id="admissions" className="pt-14 scroll-mt-24">
 			<SectionHead n={4}>Admissions &amp; dates</SectionHead>
 			<p>
-				The application is short &mdash; we know you are busy. We ask for basic
-				information, a transcript, your weekly availability, your course
-				preferences, and a few short written answers about how you think about
-				math: what you do when you&rsquo;re stuck, how you work with other
-				people. There is no entrance exam. (Those are difficult, anyway, in the
-				age of AI.)
+				<b>Applications are closed right now.</b> Our first cohort is in the
+				middle of the term, and we aren&rsquo;t taking new applications for
+				it.
 			</p>
 			<p className="mt-4">
-				We read what you write, and we use the whole pool of applications to
-				decide which courses to run and when sections meet. The priority
-				window closed on August 21 &mdash; but if you missed it, apply anyway.
-				We are reviewing late applications on a rolling basis and will offer
-				seats where they remain.
+				When applications open again, the application will be short &mdash; we
+				know you are busy. We ask for basic information, a transcript, your
+				weekly availability, your course preferences, and a few short written
+				answers about how you think about math: what you do when you&rsquo;re
+				stuck, how you work with other people. There is no entrance exam.
+				(Those are difficult, anyway, in the age of AI.) We read what you
+				write, and we use the whole pool of applications to decide which
+				courses to run and when sections meet.
 			</p>
 			<ol className="mt-6 border-l-2 border-rule pl-6 space-y-6">
 				{items.map(([d, t], i) => (
@@ -324,7 +322,7 @@ function Tuition() {
 				<b>up to and including full scholarships</b> &mdash; and admissions are{" "}
 				<b>need-blind</b>, so asking for aid has no effect on whether you get
 				in. There is a simple aid request built into the application. Parents
-				and guardians are welcome to email us with questions before applying.
+				and guardians are welcome to email us with questions anytime.
 			</p>
 			<EndMark />
 		</section>
@@ -339,35 +337,15 @@ function ClosingCTA({ signedIn }: { signedIn: boolean }) {
 					Think deeply of simple things.
 				</h2>
 				<p className="mt-3 text-ink/85">
-					The priority deadline (<b>August 21, 2026</b>) has passed,
+					Our first term is underway, and applications are closed.
 					<br />
-					but we are still accepting applications while seats remain.
+					We expect to open another round of applications in the future.
 				</p>
 				<div className="mt-6 flex justify-center flex-wrap gap-4">
-					{signedIn ? (
-						<Link to="/apply" className="btn btn-primary no-underline">
-							Go to my application →
-						</Link>
-					) : (
-						<Link to="/auth/request" className="btn btn-primary no-underline">
-							Start an application
-						</Link>
-					)}
+					<AccountLink signedIn={signedIn} />
 				</div>
-				{!signedIn && (
-					<p className="mt-4 text-sm text-muted">
-						Parent or guardian?{" "}
-						<Link
-							to="/auth/request"
-							search={{ role: "guardian" }}
-							className="text-ink underline underline-offset-2 hover:no-underline"
-						>
-							Register here →
-						</Link>
-					</p>
-				)}
 				<p className="mt-8 text-sm text-muted">
-					Questions? Write to us at{" "}
+					Questions, or want to hear when applications reopen? Write to us at{" "}
 					<a
 						href="mailto:ross@rossprogram.org"
 						className="font-sans text-ink no-underline hover:underline"

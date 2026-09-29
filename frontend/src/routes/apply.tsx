@@ -5,7 +5,7 @@ import { Prose } from '../components/Layout';
 import { fetchMe, fetchApplication, listFiles } from '../api/client';
 import { useApplication } from '../features/applicant/useApplication';
 import { SavedIndicator } from '../features/applicant/SavedIndicator';
-import { SECTIONS } from '@rp2/shared';
+import { APPLICATIONS_OPEN, SECTIONS } from '@rp2/shared';
 import {
   sectionProgress,
   firstIncompleteSlug,
@@ -13,6 +13,7 @@ import {
 } from '../features/applicant/SectionNav';
 import { useSubmitApplication } from '../features/applicant/useApplication';
 import { GuardianStatusPanel } from '../features/applicant/GuardianStatusPanel';
+import { ApplicationsClosed } from '../features/applicant/ApplicationsClosed';
 
 async function ensureAuthAndPreload({
   context,
@@ -46,6 +47,8 @@ function ApplyIndex() {
 
   const canSubmit =
     q.data?.status === 'draft' && allRenderableRequiredComplete(responses, files);
+
+  if (!APPLICATIONS_OPEN && q.data?.status === 'draft') return <ApplicationsClosed />;
 
   return (
     <Prose>

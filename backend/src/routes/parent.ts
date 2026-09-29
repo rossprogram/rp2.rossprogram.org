@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { APPLICATIONS_OPEN } from '@rp2/shared';
 import { requireAuth } from '../auth/session.js';
 import {
   completeGuardianPart,
@@ -78,6 +79,8 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
       config: { rateLimit: { max: 10, timeWindow: '1 hour' } },
     },
     async (req, reply) => {
+      // Inviting a student is how a parent starts a new application.
+      if (!APPLICATIONS_OPEN) return reply.code(409).send({ error: 'applications_closed' });
       const parsed = InviteApplicantBody.safeParse(req.body);
       if (!parsed.success) return reply.code(400).send({ error: 'invalid_body' });
       const result = await inviteApplicant({

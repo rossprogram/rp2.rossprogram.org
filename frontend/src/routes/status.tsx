@@ -4,6 +4,8 @@ import { Prose } from '../components/Layout';
 import { fetchMe, fetchApplication } from '../api/client';
 import { useApplication } from '../features/applicant/useApplication';
 import { OfferPanel } from '../features/offer/OfferPanel';
+import { ApplicationsClosed } from '../features/applicant/ApplicationsClosed';
+import { APPLICATIONS_OPEN } from '@rp2/shared';
 
 async function ensureAuth({
   context,
@@ -24,6 +26,7 @@ function StatusPage() {
   const status = app?.status ?? 'draft';
 
   if (status === 'draft') {
+    if (!APPLICATIONS_OPEN) return <ApplicationsClosed />;
     return (
       <Prose>
         <p className="smallcaps text-accent mb-6">Application status</p>

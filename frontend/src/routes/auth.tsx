@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { rootRoute } from './root';
 import { Prose } from '../components/Layout';
 import { api, ApiError, requestSignInLink, type SignInRole } from '../api/client';
+import { APPLICATIONS_OPEN } from '@rp2/shared';
 
 const RequestSearch = z.object({
   role: z.enum(['applicant', 'guardian']).optional(),
@@ -55,6 +56,13 @@ function RequestLinkPage() {
       <p className="text-muted mb-8">
         We will email you a one-time sign-in link. No password required.
       </p>
+      {!APPLICATIONS_OPEN && (
+        <p className="mb-8 max-w-md pl-5 py-4 pr-5 bg-accent-soft border-l-2 border-accent">
+          We&rsquo;re not accepting new applications right now. Families
+          already in the program can sign in as usual; we expect to open
+          another round of applications in the future.
+        </p>
+      )}
 
       <form onSubmit={onSubmit} className="max-w-md">
         <fieldset className="mb-6">
@@ -72,7 +80,9 @@ function RequestLinkPage() {
             />
             <span>
               <b>A student</b>{' '}
-              <span className="text-muted italic">applying to ℝℙ²</span>
+              <span className="text-muted italic">
+                {APPLICATIONS_OPEN ? 'applying to ℝℙ²' : 'in ℝℙ²'}
+              </span>
             </span>
           </label>
           <label className="flex items-baseline gap-3 py-1 cursor-pointer">

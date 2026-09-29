@@ -8,7 +8,7 @@ import { SavedIndicator } from '../features/applicant/SavedIndicator';
 import { SectionNav, nextSectionSlug } from '../features/applicant/SectionNav';
 import { Field, RequiredMark } from '../features/applicant/Field';
 import { useApplication, useSaveResponses } from '../features/applicant/useApplication';
-import { sectionBySlug, questionsInSection } from '@rp2/shared';
+import { APPLICATIONS_OPEN, sectionBySlug, questionsInSection } from '@rp2/shared';
 
 async function ensureAuthAndSection({
   context,
@@ -31,6 +31,8 @@ async function ensureAuthAndSection({
   if (app.status !== 'draft' && app.status !== 'awaiting_guardian') {
     throw redirect({ to: '/status' });
   }
+  // /apply explains that applications are closed.
+  if (!APPLICATIONS_OPEN && app.status === 'draft') throw redirect({ to: '/apply' });
 }
 
 function SectionPage() {

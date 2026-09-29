@@ -379,6 +379,8 @@ describe('who still owes a signature', () => {
  * where an unusable zone means we cannot say what time their class is.
  */
 describe('timezone normalisation on save', () => {
+  // `awaiting_guardian` rather than `draft`: it is still editable, and a
+  // draft is frozen whenever APPLICATIONS_OPEN is false.
   async function save(userId: string, timezone: string) {
     return app.inject({
       method: 'PATCH',
@@ -399,7 +401,7 @@ describe('timezone normalisation on save', () => {
   }
 
   it('canonicalises a repairable answer', async () => {
-    const s = seed({ status: 'draft' });
+    const s = seed({ status: 'awaiting_guardian' });
     for (const [typed, expected] of [
       ['America/Vancouver ', 'America/Vancouver'],
       ['America/Los Angeles', 'America/Los_Angeles'],
@@ -420,14 +422,14 @@ describe('timezone normalisation on save', () => {
    * than storing a value a human has to look at.
    */
   it('keeps an unrepairable answer instead of rejecting it', async () => {
-    const s = seed({ status: 'draft' });
+    const s = seed({ status: 'awaiting_guardian' });
     const res = await save(s.studentId, 'Asia/Beijing');
     expect(res.statusCode).toBe(200);
     expect(stored(s.appId)).toBe('Asia/Beijing');
   });
 
   it('leaves other answers alone', async () => {
-    const s = seed({ status: 'draft' });
+    const s = seed({ status: 'awaiting_guardian' });
     await app.inject({
       method: 'PATCH',
       url: '/api/application/me/responses',

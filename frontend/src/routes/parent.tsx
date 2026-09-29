@@ -11,6 +11,7 @@ import {
   inviteApplicantFromParent,
 } from '../api/client';
 import type { GuardianApplicantSummary } from '../api/client';
+import { APPLICATIONS_OPEN } from '@rp2/shared';
 
 async function ensureGuardian() {
   const me = await fetchMe();
@@ -58,6 +59,7 @@ function ParentIndex() {
             ))}
           </ol>
 
+          {APPLICATIONS_OPEN && (
           <div className="mt-12">
             <details className="border-t border-rule pt-6">
               <summary className="cursor-pointer smallcaps text-accent">
@@ -68,6 +70,7 @@ function ParentIndex() {
               </div>
             </details>
           </div>
+          )}
         </>
       )}
     </Prose>
@@ -75,6 +78,24 @@ function ParentIndex() {
 }
 
 function EmptyState() {
+  if (!APPLICATIONS_OPEN) {
+    return (
+      <div className="mt-4 max-w-2xl">
+        <p className="mb-6">
+          You&rsquo;re signed in. We&rsquo;re not accepting new applications
+          right now &mdash; our first term is underway &mdash; but we expect to
+          open another round of applications in the future.
+        </p>
+        <p className="text-muted">
+          Questions? Write to us at{' '}
+          <a href="mailto:ross@rossprogram.org" className="font-mono">
+            ross@rossprogram.org
+          </a>
+          .
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="mt-4 max-w-2xl">
       <p className="mb-6">

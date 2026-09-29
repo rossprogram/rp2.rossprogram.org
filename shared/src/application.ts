@@ -44,3 +44,15 @@ export const ApplicationView = z.object({
   responses: z.record(z.string(), ResponseValue),
 });
 export type ApplicationView = z.infer<typeof ApplicationView>;
+
+/*
+ * Whether new applications are being taken. Closed after the Fall 2026 term
+ * began: signing in still works, applications already submitted (including
+ * those waiting on a guardian's signature) finish as normal, and anyone else
+ * is told another round is coming. Drafts are kept, just frozen, so a
+ * reopened round can pick them back up.
+ *
+ * Reopening is more than flipping this: the landing page's dates and copy
+ * describe the round, so they need rewriting at the same time.
+ */
+export const APPLICATIONS_OPEN = false;

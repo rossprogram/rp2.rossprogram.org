@@ -11,7 +11,11 @@ import {
   user,
   userRole,
 } from '../db/schema.js';
-import { normalizeTimeZone, type ApplicationStatus } from '@rp2/shared';
+import {
+  APPLICATIONS_OPEN,
+  normalizeTimeZone,
+  type ApplicationStatus,
+} from '@rp2/shared';
 import { requestGuardianInvite } from '../auth/magic-link.js';
 
 function nowSeconds(): number {
@@ -152,6 +156,7 @@ export async function upsertResponses(
   if (app.status !== 'draft' && app.status !== 'awaiting_guardian') {
     throw new ApplicationLocked(app.status);
   }
+  assertAcceptingDraft(app.status);
   const now = nowSeconds();
 
   const guardianAction = decideGuardianAction(userId, incoming);
@@ -413,6 +418,21 @@ function syncCoursePreferences(applicationId: string, value: unknown): void {
   }
 }
 
+/**
+ * With applications closed, a draft is frozen: no answers, files, or submit.
+ * Anything already submitted — `awaiting_guardian` included — is past this
+ * gate, so a family mid-signature can still finish.
+ */
+function assertAcceptingDraft(status: ApplicationStatus): void {
+  if (!APPLICATIONS_OPEN && status === 'draft') throw new ApplicationsClosed();
+}
+
+export class ApplicationsClosed extends Error {
+  constructor() {
+    super('applications are closed');
+  }
+}
+
 export class ApplicationLocked extends Error {
   constructor(public status: ApplicationStatus) {
     super(`application is ${status}, cannot modify`);
@@ -428,6 +448,7 @@ export function submitApplication(userId: string): {
   if (app.status !== 'draft') {
     throw new ApplicationLocked(app.status);
   }
+  assertAcceptingDraft(app.status);
   const now = nowSeconds();
 
   // If the guardian raced ahead of the applicant and already finished their

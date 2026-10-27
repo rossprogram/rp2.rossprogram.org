@@ -32,6 +32,10 @@ function AdminOnboardingPage() {
         <Link to="/admin/offers" className="text-ink">
           Offers &amp; import
         </Link>
+        {' · '}
+        <Link to="/admin/surveys" className="text-ink">
+          Surveys
+        </Link>
       </p>
 
       <h2 className="font-serif text-2xl mb-4">Signatures</h2>

@@ -98,6 +98,23 @@ function GuardianApplicantPage() {
       {/* Likewise: nothing to agree to until there is a place to agree about. */}
       <GuardianAgreements appId={appId} />
 
+      {applicant.status === 'enrolled' ? (
+        <section className="mt-12">
+          <h2 className="font-serif text-2xl mb-2">Parent survey</h2>
+          <p className="text-muted mb-4">
+            Tell us how the term is going for {displayName}. It takes a couple
+            of minutes.
+          </p>
+          <Link
+            to="/parent/applicant/$appId/survey"
+            params={{ appId }}
+            className="btn btn-primary no-underline"
+          >
+            Open the survey →
+          </Link>
+        </section>
+      ) : null}
+
       {applicationStageOver ? null : (
         <>
           <ProgramFacts />

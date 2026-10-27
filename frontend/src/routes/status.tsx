@@ -115,6 +115,11 @@ function StatusPage() {
             Program agreements →
           </Link>
         ) : null}
+        {status === 'enrolled' ? (
+          <Link to="/survey" className="btn btn-primary no-underline">
+            Student survey →
+          </Link>
+        ) : null}
         <Link to="/apply" className="btn btn-ghost no-underline">
           Review my responses
         </Link>

@@ -6,3 +6,4 @@ export * from './agreements.js';
 export * from './discord.js';
 export * from './schedule.js';
 export * from './countries.js';
+export * from './surveys.js';

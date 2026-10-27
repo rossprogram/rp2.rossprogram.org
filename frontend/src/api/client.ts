@@ -688,3 +688,77 @@ export type MentorView = {
 export function fetchMentorView() {
   return api.get<MentorView>('/api/mentor/me');
 }
+
+/* ==================== term surveys ==================== */
+
+export type SurveyEnvelope = {
+  applicationId: string;
+  survey: import('@rp2/shared').SurveyDefinition;
+  enrolled: boolean;
+  studentName: string | null;
+  /** The section on the student's offer — prefills the student survey. */
+  section: string | null;
+  round: string;
+  respondent: 'student' | 'guardian';
+  answers: import('@rp2/shared').SurveyAnswers | null;
+  submittedAt: number | null;
+  updatedAt: number | null;
+};
+
+export function fetchSurvey() {
+  return api.get<SurveyEnvelope>('/api/survey');
+}
+
+export function submitSurvey(answers: Record<string, unknown>) {
+  return api.post<SurveyEnvelope>('/api/survey', { answers });
+}
+
+export function fetchGuardianSurvey(appId: string) {
+  return api.get<SurveyEnvelope>(`/api/parent/applicant/${encodeURIComponent(appId)}/survey`);
+}
+
+export function submitGuardianSurvey(appId: string, answers: Record<string, unknown>) {
+  return api.post<SurveyEnvelope>(
+    `/api/parent/applicant/${encodeURIComponent(appId)}/survey`,
+    { answers },
+  );
+}
+
+/* -------- admin -------- */
+
+export type SurveyFamily = {
+  applicationId: string;
+  studentName: string | null;
+  studentEmail: string;
+  section: string | null;
+  guardianEmail: string | null;
+  guardianAccepted: boolean;
+  studentRespondedAt: number | null;
+  guardianRespondedAt: number | null;
+};
+
+export type AdminSurveyList = {
+  families: SurveyFamily[];
+  enrolledCount: number;
+  studentResponses: number;
+  guardianResponses: number;
+};
+
+export type SurveyRequestResult =
+  | {
+      dryRun: true;
+      planned: { to: string; kind: 'student' | 'guardian'; students: string[] }[];
+    }
+  | { dryRun: false; sent: number; skipped: number };
+
+export function fetchAdminSurveys() {
+  return api.get<AdminSurveyList>('/api/admin/surveys');
+}
+
+export function surveyExportUrl(format: 'csv' | 'xlsx', respondent: 'student' | 'guardian') {
+  return `/api/admin/surveys/export?format=${format}&respondent=${respondent}`;
+}
+
+export function requestSurveys(body: { dryRun: boolean; includeResponded: boolean }) {
+  return api.post<SurveyRequestResult>('/api/admin/surveys/request', body);
+}

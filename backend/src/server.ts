@@ -17,6 +17,7 @@ import { registerAgreementRoutes } from './routes/agreements.js';
 import { registerDiscordRoutes } from './routes/discord.js';
 import { registerAdminOnboardingRoutes } from './routes/admin-onboarding.js';
 import { registerMentorRoutes } from './routes/mentor.js';
+import { registerSurveyRoutes } from './routes/surveys.js';
 import { initStripe } from './integrations/stripe/index.js';
 import { attachSession } from './auth/session.js';
 import { runMigrations } from './db/migrate.js';
@@ -60,6 +61,7 @@ export async function build() {
   await registerDiscordRoutes(app);
   await registerAdminOnboardingRoutes(app);
   await registerMentorRoutes(app);
+  await registerSurveyRoutes(app);
 
   return app;
 }

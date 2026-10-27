@@ -56,6 +56,10 @@ function AdminIndexPage() {
         <Link to="/admin/onboarding" className="text-ink">
           Onboarding
         </Link>
+        {' · '}
+        <Link to="/admin/surveys" className="text-ink">
+          Surveys
+        </Link>
       </p>
 
       <div className="flex flex-wrap items-baseline gap-4 mb-6">

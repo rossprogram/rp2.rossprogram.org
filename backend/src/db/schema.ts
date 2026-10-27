@@ -659,3 +659,45 @@ export const zoomAccount = sqliteTable(
     emailIdx: uniqueIndex('zoom_account_email_idx').on(t.zoomEmail),
   }),
 );
+
+/*
+ * ==================== term surveys ====================
+ */
+
+/*
+ * One completed survey: a student's about themselves, or a guardian's about
+ * one of their students. A guardian with two enrolled children answers once
+ * per child, since every question is about "your child".
+ *
+ * Answers are a JSON object keyed by the stable question keys in
+ * shared/src/surveys.ts, the same approach as application_response, so the
+ * question set can change between rounds without a migration. `round` is
+ * SURVEY_ROUND at the time of submission.
+ *
+ * Resubmitting replaces the answers (and bumps updated_at) rather than adding
+ * a row: the export wants one row per family per round.
+ */
+export const surveyResponse = sqliteTable(
+  'survey_response',
+  {
+    id: text('id').primaryKey(),
+    round: text('round').notNull(),
+    applicationId: text('application_id')
+      .notNull()
+      .references(() => application.id, { onDelete: 'cascade' }),
+    respondentKind: text('respondent_kind', { enum: ['student', 'guardian'] }).notNull(),
+    respondentUserId: text('respondent_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    answers: text('answers').notNull(),
+    submittedAt: integer('submitted_at').notNull().default(nowSql),
+    updatedAt: integer('updated_at').notNull().default(nowSql),
+  },
+  (t) => ({
+    oneEach: uniqueIndex('survey_response_unique_idx').on(
+      t.round,
+      t.applicationId,
+      t.respondentKind,
+    ),
+  }),
+);

@@ -282,3 +282,57 @@ export function renderSignatureReminderEmail(params: {
     `,
   };
 }
+
+/**
+ * Asking a family to fill in the term survey. One email per address: a
+ * guardian with two enrolled students gets one email naming both.
+ */
+export function renderSurveyRequestEmail(params: {
+  recipientKind: 'student' | 'guardian';
+  /** The students this recipient is being asked about. */
+  studentNames: string[];
+  portalUrl: string;
+}): RenderedEmail {
+  const named = params.studentNames.filter((n) => n.trim() !== '');
+  const about =
+    named.length === 0
+      ? 'your student'
+      : named.length === 1
+        ? named[0]!
+        : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`;
+
+  const ask =
+    params.recipientKind === 'student'
+      ? 'We want to know how ℝℙ² is going for you so far. Please take a couple of minutes to fill out a short survey.'
+      : `We would like to hear how the start of ℝℙ² has gone for ${about}, from your side. Please take a couple of minutes to fill out a short survey${named.length > 1 ? ' for each student' : ''}.`;
+
+  const how =
+    params.recipientKind === 'student'
+      ? 'Sign in to the portal and open the survey here:'
+      : 'Sign in to the parent portal and open the survey from your student’s page:';
+
+  return {
+    subject:
+      params.recipientKind === 'student'
+        ? 'How is ℝℙ² going? A short survey'
+        : `How is ℝℙ² going for ${about}? A short survey`,
+    text: [
+      'Hello,',
+      '',
+      ask,
+      '',
+      how,
+      params.portalUrl,
+      '',
+      'Thank you,',
+      '— Ross Mathematics Foundation',
+    ].join('\n'),
+    html: `
+      <p>Hello,</p>
+      <p>${escapeHtml(ask)}</p>
+      <p>${escapeHtml(how)}</p>
+      <p><a href="${escapeHtml(params.portalUrl)}">${escapeHtml(params.portalUrl)}</a></p>
+      <p>Thank you,<br>— Ross Mathematics Foundation</p>
+    `,
+  };
+}
